@@ -1,0 +1,137 @@
+[
+  {
+    "main": "Master",
+    "title": "Course",
+    "path": "/course",
+    "active" :"btn-primary",
+    "element":"<Course/>",
+    "icon": "menu-icon tf-icons bx bx-book-bookmark",
+    "iconopen": "menu-link "
+  },
+  {
+    "title": "Certificates",
+    "path": "/certificate",
+    "active": "btn-primary",
+    "element": "<Certificate/>",
+    "icon": "menu-icon tf-icons bx bx-award",
+    "iconopen": "menu-link "
+  },
+  {
+    "title": "Verify Certificate",
+    "path": "/verify-certificate",
+    "active": "btn-primary",
+    "element": "<CertificateVerify/>",
+    "icon": "menu-icon tf-icons bx bx-check-shield",
+    "iconopen": "menu-link "
+  },
+   
+   
+    
+    {
+      "main": "Transaction",
+      "title": "About Us",
+      "active" :"btn-primary",
+      "icon": "menu-icon tf-icons bx bx-block",
+      "iconopen": "menu-link menu-toggle",
+      "subNav": [
+        {
+          "title": "Our Aim",
+          "path": "/about-us/aim",
+          "icon": "<IoIcons.IoIosPaper />"
+        },
+        {
+          "title": "Our Vision",
+          "path": "/about-us/vision",
+          "icon": "<IoIcons.IoIosPaper />"
+        }
+      ]
+    },
+    {
+      "title": "Support",
+      "path": "/support",
+      "active" :"btn-primary",
+      "icon": "menu-icon tf-icons bx bx-block",
+      "iconopen": "menu-link"
+    },
+
+    {
+      "main": "Payment",
+      "title": "About Us",
+      "active" :"btn-primary",
+      "icon": "menu-icon tf-icons bx bx-block",
+      "iconopen": "menu-link menu-toggle",
+      "subNav": [
+        {
+          "title": "Our Aim",
+          "path": "/about-us/aim",
+          "icon": "<IoIcons.IoIosPaper />"
+        },
+        {
+          "title": "Our Vision",
+          "path": "/about-us/vision",
+          "icon": "<IoIcons.IoIosPaper />"
+        }
+      ]
+    },
+    {
+      "title": "Support",
+      "path": "/support",
+      "active" :"btn-primary",
+      "icon": "menu-icon tf-icons bx bx-block",
+      "iconopen": "menu-link"
+    },
+
+    {
+      "main": "Inventory",
+      "title": "About Us",
+      "active" :"btn-primary",
+      "icon": "menu-icon tf-icons bx bx-block",
+      "iconopen": "menu-link menu-toggle",
+      "subNav": [
+        {
+          "title": "Our Aim",
+          "path": "/about-us/aim",
+          "icon": "<IoIcons.IoIosPaper />"
+        },
+        {
+          "title": "Our Vision",
+          "path": "/about-us/vision",
+          "icon": "<IoIcons.IoIosPaper />"
+        }
+      ]
+    },
+    {
+      "title": "Support",
+      "path": "/support",
+      "active" :"btn-primary",
+      "icon": "menu-icon tf-icons bx bx-block",
+      "iconopen": "menu-link"
+    },
+
+    {
+      "main": "Report",
+      "title": "About Us",
+      "active" :"btn-primary",
+      "icon": "menu-icon tf-icons bx bx-block",
+      "iconopen": "menu-link menu-toggle",
+      "subNav": [
+        {
+          "title": "Our Aim",
+          "path": "/about-us/aim",
+          "icon": "<IoIcons.IoIosPaper />"
+        },
+        {
+          "title": "Our Vision",
+          "path": "/about-us/vision",
+          "icon": "<IoIcons.IoIosPaper />"
+        }
+      ]
+    },
+    {
+      "title": "Support",
+      "path": "/support",
+      "active" :"btn-primary",
+      "icon": "menu-icon tf-icons bx bx-block",
+      "iconopen": "menu-link"
+    }
+  ]

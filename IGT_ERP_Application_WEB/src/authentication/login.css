@@ -1,0 +1,194 @@
+/* ==========================================
+   IGT ERP LOGIN - MODERN 2026
+   SCOPED to .auth-login-page so it never
+   leaks into the Sneat theme / dashboard.
+========================================== */
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+
+/* Scoped reset — only inside the login page, not global * / body */
+.auth-login-page,
+.auth-login-page *{
+    box-sizing:border-box;
+}
+
+.auth-login-page{
+    font-family:'Inter',sans-serif;
+    background:#eef2f9;
+}
+
+/* Full Screen */
+.auth-login-page .authentication-wrapper{
+    min-height:100vh;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding:30px;
+}
+
+/* Main Card */
+.auth-login-page .authentication-inner{
+    width:1100px;
+    max-width:100%;
+}
+
+.auth-login-page .card{
+    border:none !important;
+    border-radius:18px !important;
+    overflow:hidden;
+    box-shadow:0 15px 45px rgba(0,0,0,.12);
+}
+
+/* Split Layout */
+.auth-login-page .login-wrapper{
+    display:flex;
+    min-height:520px;
+}
+
+/* Left */
+.auth-login-page .login-left{
+    width:50%;
+    background:#fff;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding:70px;
+}
+
+/* Right */
+.auth-login-page .login-right{
+    width:50%;
+    background:
+        linear-gradient(rgba(91,98,255,.45), rgba(91,98,255,.45)),
+        url("https://images.unsplash.com/photo-1516321318423-f06f85e504b3?auto=format&fit=crop&w=1200&q=80");
+    background-size:cover;
+    background-position:center;
+    color:#fff;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    text-align:center;
+    position:relative;
+}
+
+.auth-login-page .login-right::before{
+    content:"";
+    position:absolute;
+    inset:0;
+    backdrop-filter:blur(2px);
+}
+
+.auth-login-page .login-right-content{
+    position:relative;
+    z-index:10;
+    max-width:380px;
+}
+
+.auth-login-page .login-right h2{
+    font-size:38px;
+    font-weight:700;
+    margin-bottom:20px;
+}
+
+.auth-login-page .login-right p{
+    font-size:17px;
+    line-height:1.8;
+    opacity:.95;
+}
+
+/* Logo */
+.auth-login-page .app-brand{
+    margin-bottom:40px;
+}
+
+.auth-login-page .app-brand-text{
+    font-size:40px;
+    color:#5b62ff;
+    font-weight:800;
+}
+
+/* Heading */
+.auth-login-page .login-title{
+    font-size:40px;
+    font-weight:700;
+    margin-bottom:10px;
+}
+
+.auth-login-page .login-subtitle{
+    color:#64748b;
+    margin-bottom:40px;
+}
+
+/* Inputs */
+.auth-login-page .form-label{
+    font-weight:600;
+    color:#334155;
+    margin-bottom:8px;
+}
+
+.auth-login-page .form-control{
+    height:54px;
+    border-radius:10px;
+    border:1px solid #d6dbe7;
+    box-shadow:none;
+    padding-left:18px;
+    font-size:15px;
+    transition:.3s;
+}
+
+.auth-login-page .form-control:focus{
+    border-color:#5b62ff;
+    box-shadow:0 0 0 4px rgba(91,98,255,.15);
+}
+
+/* Password */
+.auth-login-page .input-group-text{
+    background:#fff;
+    border:1px solid #d6dbe7;
+    border-left:none;
+    cursor:pointer;
+}
+
+/* Remember */
+.auth-login-page .form-check-label{
+    color:#64748b;
+}
+
+.auth-login-page a{
+    color:#5b62ff;
+    text-decoration:none;
+}
+
+/* Button */
+.auth-login-page .btn-primary{
+    background:#5b62ff !important;
+    border:none !important;
+    height:52px;
+    border-radius:10px;
+    font-size:16px;
+    font-weight:600;
+    transition:.3s;
+}
+
+.auth-login-page .btn-primary:hover{
+    transform:translateY(-2px);
+    background:#4750f5 !important;
+    box-shadow:0 10px 20px rgba(91,98,255,.30);
+}
+
+/* Responsive */
+@media(max-width:992px){
+    .auth-login-page .login-wrapper{
+        flex-direction:column;
+    }
+    .auth-login-page .login-left,
+    .auth-login-page .login-right{
+        width:100%;
+    }
+    .auth-login-page .login-right{
+        display:none;
+    }
+    .auth-login-page .login-left{
+        padding:40px;
+    }
+}

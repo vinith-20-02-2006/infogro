@@ -1,0 +1,281 @@
+/*==================================================
+            COURSE PAGE - MODERN ERP 2026
+   SCOPED to .course-page so it never leaks onto
+   shared Bootstrap/Sneat classes elsewhere in the app
+   (.active, .card-footer, .table-responsive, etc.)
+==================================================*/
+
+/* Background */
+
+.course-page.container-p-y{
+    background:#F5F7FB;
+    min-height:100vh;
+    padding:25px;
+}
+
+/*==================================================
+PAGE HEADER
+==================================================*/
+
+.course-page .page-header{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    margin-bottom:25px;
+}
+
+.course-page .page-title{
+    font-size:28px;
+    font-weight:700;
+    color:#1E293B;
+    margin-bottom:5px;
+}
+
+.course-page .page-subtitle{
+    color:#64748B;
+    margin:0;
+    font-size:14px;
+}
+
+/*==================================================
+ADD BUTTON
+==================================================*/
+
+.course-page .add-btn{
+    background:#4F46E5;
+    border:none;
+    border-radius:12px;
+    padding:10px 22px;
+    font-weight:600;
+    transition:.3s;
+}
+
+.course-page .add-btn:hover{
+    background:#4338CA;
+    transform:translateY(-2px);
+}
+
+/*==================================================
+CARD
+==================================================*/
+
+.course-page .course-card{
+    border:none;
+    border-radius:20px;
+    overflow:hidden;
+    box-shadow:0 8px 25px rgba(15,23,42,.06);
+    background:#fff;
+    animation:course-fadeUp .35s ease;
+}
+
+/*==================================================
+TABLE
+==================================================*/
+
+.course-page .modern-table{
+    margin:0;
+}
+
+.course-page .modern-table thead{
+    background:#F8FAFC;
+}
+
+.course-page .modern-table thead th{
+    border:none;
+    padding:18px;
+    font-size:13px;
+    font-weight:700;
+    color:#64748B;
+    text-transform:uppercase;
+    letter-spacing:.5px;
+}
+
+.course-page .modern-table tbody td{
+    padding:18px;
+    border-top:1px solid #EEF2F7;
+    vertical-align:middle;
+    color:#334155;
+}
+
+.course-page .modern-table tbody tr{
+    transition:.25s;
+}
+
+.course-page .modern-table tbody tr:hover{
+    background:#F8FAFC;
+}
+
+/*==================================================
+STATUS
+==================================================*/
+
+.course-page .status{
+    display:inline-block;
+    padding:6px 16px;
+    border-radius:30px;
+    font-size:12px;
+    font-weight:600;
+}
+
+.course-page .status.active{
+    background:#DCFCE7;
+    color:#15803D;
+}
+
+.course-page .status.inactive{
+    background:#FEE2E2;
+    color:#DC2626;
+}
+
+/*==================================================
+ACTION BUTTONS
+==================================================*/
+
+.course-page .action-buttons{
+    display:flex;
+    gap:10px;
+}
+
+.course-page .btn-edit{
+    background:#EEF2FF;
+    color:#4F46E5;
+    border:none;
+    border-radius:10px;
+    padding:7px 18px;
+    font-size:14px;
+    font-weight:600;
+    transition:.3s;
+}
+
+.course-page .btn-edit:hover{
+    background:#4F46E5;
+    color:#fff;
+}
+
+.course-page .btn-delete{
+    background:#FEF2F2;
+    color:#DC2626;
+    border:none;
+    border-radius:10px;
+    padding:7px 18px;
+    font-size:14px;
+    font-weight:600;
+    transition:.3s;
+}
+
+.course-page .btn-delete:hover{
+    background:#DC2626;
+    color:#fff;
+}
+
+/*==================================================
+PAGINATION
+==================================================*/
+
+.course-page .card-footer{
+    padding:18px 25px;
+}
+
+.course-page .card-footer .btn{
+    border-radius:10px;
+    padding:8px 18px;
+    font-weight:500;
+}
+
+.course-page .card-footer .btn-light{
+    background:#F1F5F9;
+    border:none;
+}
+
+.course-page .card-footer .btn-light:hover{
+    background:#E2E8F0;
+}
+
+/*==================================================
+TABLE RESPONSIVE
+==================================================*/
+
+.course-page .table-responsive{
+    overflow-x:auto;
+}
+
+/*==================================================
+SCROLLBAR
+==================================================*/
+
+.course-page .table-responsive::-webkit-scrollbar{
+    height:7px;
+}
+
+.course-page .table-responsive::-webkit-scrollbar-thumb{
+    background:#CBD5E1;
+    border-radius:10px;
+}
+
+/*==================================================
+ANIMATION
+==================================================*/
+
+@keyframes course-fadeUp{
+    from{
+        opacity:0;
+        transform:translateY(20px);
+    }
+    to{
+        opacity:1;
+        transform:translateY(0);
+    }
+}
+
+/*==================================================
+RESPONSIVE
+==================================================*/
+
+@media(max-width:992px){
+
+    .course-page .page-header{
+        flex-direction:column;
+        align-items:flex-start;
+        gap:15px;
+    }
+
+    .course-page .add-btn{
+        width:100%;
+    }
+
+}
+
+@media(max-width:768px){
+
+    .course-page .modern-table th,
+    .course-page .modern-table td{
+        padding:12px;
+        font-size:13px;
+    }
+
+    .course-page .action-buttons{
+        flex-direction:column;
+    }
+
+    .course-page .btn-edit,
+    .course-page .btn-delete{
+        width:100%;
+    }
+
+}
+
+@media(max-width:576px){
+
+    .course-page .page-title{
+        font-size:22px;
+    }
+
+    .course-page .page-subtitle{
+        font-size:13px;
+    }
+
+    .course-page.container-p-y{
+        padding:15px;
+    }
+
+}
