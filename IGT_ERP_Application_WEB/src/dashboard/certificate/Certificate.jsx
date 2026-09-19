@@ -1,241 +1,553 @@
-import React, { useContext, useEffect, useState, useCallback } from "react";
-import AuthContext from "../../services/AuthContext";
-import igtLogo from "../../assets/img/igt_logo.png";
+import React, { useState, useEffect, useCallback } from "react";
 import "./Certificate.css";
 
 const API_URL = "http://127.0.0.1:8000";
 
 const Certificate = () => {
-  const { user } = useContext(AuthContext);
-  const [courses, setCourses] = useState([]);
-  const [selectedCourse, setSelectedCourse] = useState("");
-  const [studentName, setStudentName] = useState(
-    user ? `${user.first_name || ""} ${user.last_name || ""}`.trim() || user.username || "" : ""
-  );
-  const [eligibility, setEligibility] = useState(null);
-  const [certificate, setCertificate] = useState(null);
+  const [certificates, setCertificates] = useState([]);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
 
-  const fetchCourses = useCallback(async () => {
+  // Modals state
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [showViewModal, setShowViewModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+
+  // Selected item for View or Edit
+  const [selectedCert, setSelectedCert] = useState(null);
+
+  // Search & Eligible Students State
+  const [searchQuery, setSearchQuery] = useState("");
+  const [eligibleStudents, setEligibleStudents] = useState([]);
+  const [selectedStudent, setSelectedStudent] = useState(null);
+
+  // Form Fields for Certificate Generation
+  const [formData, setFormData] = useState({
+    register_id: "",
+    student_name: "",
+    course_name: "",
+    joining_date: "",
+    issue_date: new Date().toISOString().split("T")[0],
+    assignment_status: "Completed",
+    assessment_status: "Completed",
+    assignment_score: 90,
+    assessment_score: 95,
+  });
+
+  // Edit Form Fields
+  const [editData, setEditData] = useState({
+    certificate_id: "",
+    register_id: "",
+    student_name: "",
+    course_name: "",
+    issue_date: "",
+  });
+
+  // 1. Fetch All Certificates for Table
+  const fetchCertificates = useCallback(async () => {
+    setLoading(true);
     try {
-      const response = await fetch(`${API_URL}/adm/fetch_course_datail`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-      });
-      if (response.ok) {
-        const data = await response.json();
-        const courseList = data.value || data || [];
-        setCourses(courseList);
-        if (courseList.length > 0) {
-          setSelectedCourse(courseList[0].Course_id);
-        }
+      const res = await fetch(`${API_URL}/adm/list_certificates`);
+      if (res.ok) {
+        const data = await res.json();
+        setCertificates(data);
       }
     } catch (err) {
-      console.error("Error fetching courses:", err);
+      console.error("Error fetching certificates:", err);
+    } finally {
+      setLoading(false);
     }
   }, []);
 
-  const checkEligibility = useCallback(async (courseId) => {
-    if (!courseId) return;
-    setLoading(true);
-    setMessage("");
-    setCertificate(null);
-    try {
-      const userId = user?.user_id || user?.id || 1;
-      const res = await fetch(`${API_URL}/adm/check_certificate_eligibility`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ user_id: userId, course_id: parseInt(courseId) }),
-      });
-      const data = await res.json();
-      setEligibility(data);
+  useEffect(() => {
+    fetchCertificates();
+  }, [fetchCertificates]);
 
-      const certRes = await fetch(`${API_URL}/adm/get_student_certificates`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ user_id: userId }),
-      });
-      if (certRes.ok) {
-        const certs = await certRes.json();
-        const match = certs.find((c) => c.Course_id === parseInt(courseId));
-        if (match) {
-          setCertificate(match);
-          if (match.student_name) {
-            setStudentName(match.student_name);
-          }
+  // 2. Search Eligible Students
+  const handleSearchStudents = async (query) => {
+    setSearchQuery(query);
+    if (!query || query.trim().length === 0) {
+      // Fetch default eligible list
+      try {
+        const res = await fetch(`${API_URL}/adm/search_eligible_students`);
+        if (res.ok) {
+          const data = await res.json();
+          setEligibleStudents(data);
         }
+      } catch (err) {
+        console.error("Search error:", err);
+      }
+      return;
+    }
+
+    try {
+      const res = await fetch(`${API_URL}/adm/search_eligible_students?q=${encodeURIComponent(query)}`);
+      if (res.ok) {
+        const data = await res.json();
+        setEligibleStudents(data);
       }
     } catch (err) {
-      console.error("Error checking eligibility:", err);
-    } finally {
-      setLoading(false);
+      console.error("Search error:", err);
     }
-  }, [user]);
+  };
 
-  useEffect(() => {
-    fetchCourses();
-  }, [fetchCourses]);
+  // Open Add Certificate Modal
+  const openAddModal = () => {
+    setShowAddModal(true);
+    setSelectedStudent(null);
+    setSearchQuery("");
+    setFormData({
+      register_id: "",
+      student_name: "",
+      course_name: "",
+      joining_date: "",
+      issue_date: new Date().toISOString().split("T")[0],
+      assignment_status: "Completed",
+      assessment_status: "Completed",
+      assignment_score: 90,
+      assessment_score: 95,
+    });
+    handleSearchStudents("");
+  };
 
-  useEffect(() => {
-    if (selectedCourse) {
-      checkEligibility(selectedCourse);
+  // 3. Select Eligible Student from Search Results -> Auto Populate Form
+  const handleSelectStudent = (student) => {
+    setSelectedStudent(student);
+    setFormData({
+      register_id: student.register_id || "",
+      student_name: student.student_name || "",
+      course_name: student.course_name || "",
+      joining_date: student.joining_date || "",
+      issue_date: new Date().toISOString().split("T")[0],
+      assignment_status: student.assignment_status || "Completed",
+      assessment_status: student.assessment_status || "Completed",
+      assignment_score: student.assignment_score || 90,
+      assessment_score: student.assessment_score || 95,
+    });
+  };
+
+  // 4. Submit / Generate Certificate
+  const handleGenerateCertificate = async (e) => {
+    e.preventDefault();
+    if (!formData.student_name || !formData.course_name) {
+      alert("Please select an eligible student to generate a certificate.");
+      return;
     }
-  }, [selectedCourse, checkEligibility]);
 
-  const handleGenerate = async () => {
     setLoading(true);
-    setMessage("");
     try {
-      const userId = user?.user_id || user?.id || 1;
       const res = await fetch(`${API_URL}/adm/generate_certificate`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          user_id: userId,
-          course_id: parseInt(selectedCourse),
-          student_name: studentName,
-        }),
+        body: JSON.stringify(formData),
       });
+
       const data = await res.json();
       if (res.ok) {
-        const certObj = data.data || data;
-        setCertificate(certObj);
         setMessage("Certificate generated successfully!");
+        setShowAddModal(false);
+        fetchCertificates();
       } else {
-        setMessage(data.message || "Failed to generate certificate.");
+        alert(data.message || "Failed to generate certificate.");
       }
     } catch (err) {
       console.error("Generation error:", err);
-      setMessage("Error generating certificate.");
+      alert("Error generating certificate.");
     } finally {
       setLoading(false);
     }
   };
 
-  const handleDownload = () => {
-    if (!certificate) return;
-    const downloadUrl = `${API_URL}/adm/download_certificate_pdf?certificate_id=${certificate.certificate_id}&student_name=${encodeURIComponent(studentName || "")}`;
+  // 5. Action: View Certificate Image Modal
+  const handleViewCert = (cert) => {
+    setSelectedCert(cert);
+    setShowViewModal(true);
+  };
+
+  // 6. Action: Download Certificate JPG
+  const handleDownloadCert = (registerId) => {
+    const downloadUrl = `${API_URL}/adm/download_certificate_jpg?register_id=${registerId}`;
     window.open(downloadUrl, "_blank");
   };
 
-  const handleWhatsAppShare = () => {
-    if (!certificate) return;
-    const courseName = certificate.Course_name || "Course";
-    const certId = certificate.certificate_id;
-    const recipientName = certificate.student_name || studentName || "Student";
-    const verifyUrl = `http://localhost:3000/verify-certificate?id=${certificate.verification_token || certId}`;
+  // 7. Action: WhatsApp Share
+  const handleWhatsAppShare = (cert) => {
+    const certId = cert.register_id || cert.certificate_id;
+    const recipient = cert.student_name || "Student";
+    const course = cert.course_name || "Course";
+    const verifyUrl = `${window.location.origin}/verify-certificate?id=${cert.verification_token || certId}`;
 
-    const text = `Congratulations ${recipientName}! You have successfully completed the ${courseName} course and received your official certificate.\n\nCertificate ID: ${certId}\nVerify Certificate:\n${verifyUrl}`;
+    const text = `Congratulations ${recipient}! You have successfully completed the ${course} course at IGT ERP Academy.\n\nStudent ID: ${certId}\nVerify Certificate:\n${verifyUrl}`;
     const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(text)}`;
     window.open(whatsappUrl, "_blank");
   };
 
+  // 8. Action: Open Edit Modal
+  const handleOpenEdit = (cert) => {
+    setSelectedCert(cert);
+    setEditData({
+      certificate_id: cert.certificate_id,
+      register_id: cert.register_id,
+      student_name: cert.student_name,
+      course_name: cert.course_name,
+      issue_date: cert.raw_issue_date || new Date().toISOString().split("T")[0],
+    });
+    setShowEditModal(true);
+  };
+
+  // 9. Action: Save Edit Certificate Changes
+  const handleSaveEdit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    try {
+      const res = await fetch(`${API_URL}/adm/update_certificate`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(editData),
+      });
+
+      if (res.ok) {
+        setShowEditModal(false);
+        fetchCertificates();
+      } else {
+        const data = await res.json();
+        alert(data.message || "Failed to update certificate.");
+      }
+    } catch (err) {
+      console.error("Update error:", err);
+      alert("Error updating certificate.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
-    <div className="certificate-container container-xxl">
-      <div className="d-flex align-items-center mb-4">
-        <img src={igtLogo} alt="IGT Logo" style={{ height: "60px", marginRight: "16px" }} />
-        <h3 className="m-0" style={{ color: "#0F4C81", fontWeight: "bold" }}>
-          Certificate Management
-        </h3>
-      </div>
+    <div className="certificate-page-container container-xxl">
+      {message && (
+        <div className="alert alert-success alert-dismissible fade show" role="alert">
+          {message}
+          <button type="button" className="btn-close" onClick={() => setMessage("")}></button>
+        </div>
+      )}
 
-      <div className="certificate-card">
-        <div className="row g-3">
-          <div className="col-md-6">
-            <label className="form-label font-weight-bold">Select Course:</label>
-            <select
-              className="form-select"
-              value={selectedCourse}
-              onChange={(e) => setSelectedCourse(e.target.value)}
-            >
-              {courses.map((c) => (
-                <option key={c.Course_id} value={c.Course_id}>
-                  {c.Course_name}
-                </option>
-              ))}
-            </select>
+      {/* Main Card with Header & Table */}
+      <div className="certificate-card-main">
+        {/* Header matching screenshot */}
+        <div className="cert-header-bar">
+          <div className="cert-header-left">
+            <div className="cert-header-icon-bg">
+              <i className="bx bx-user-check"></i>
+            </div>
+            <h4 className="cert-header-title">VIEW CERTIFICATE</h4>
           </div>
 
-          <div className="col-md-6">
-            <label className="form-label font-weight-bold">Student Name on Certificate:</label>
-            <input
-              type="text"
-              className="form-control"
-              placeholder="Enter Full Name (e.g. John Doe)"
-              value={studentName}
-              onChange={(e) => setStudentName(e.target.value)}
-            />
-          </div>
+          <button className="btn-add-cert" onClick={openAddModal}>
+            <i className="bx bx-user-plus"></i> + Add Certificate
+          </button>
+        </div>
+
+        {/* Certificate Table matching screenshot columns */}
+        <div className="cert-table-wrapper">
+          <table className="cert-custom-table">
+            <thead>
+              <tr>
+                <th>STUDENT ID</th>
+                <th>STUDENT NAME</th>
+                <th>COURSE</th>
+                <th>ISSUE DATE</th>
+                <th>CERTIFICATE</th>
+                <th>DOWNLOAD</th>
+                <th>SHARE</th>
+                <th>EDIT</th>
+              </tr>
+            </thead>
+            <tbody>
+              {certificates.length > 0 ? (
+                certificates.map((row, index) => (
+                  <tr key={row.certificate_id || index}>
+                    <td className="font-weight-bold" style={{ color: "#566a7f" }}>
+                      {row.register_id || row.certificate_id}
+                    </td>
+                    <td style={{ color: "#435971", fontWeight: "500" }}>{row.student_name}</td>
+                    <td style={{ color: "#697a8d" }}>{row.course_name}</td>
+                    <td style={{ color: "#697a8d" }}>{row.issue_date}</td>
+
+                    {/* View Action (Eye icon) */}
+                    <td>
+                      <button
+                        className="icon-btn-action icon-btn-view"
+                        title="View Certificate JPG"
+                        onClick={() => handleViewCert(row)}
+                      >
+                        <i className="bx bx-show"></i>
+                      </button>
+                    </td>
+
+                    {/* Download Action (Download icon) */}
+                    <td>
+                      <button
+                        className="icon-btn-action icon-btn-download"
+                        title="Download Certificate JPG"
+                        onClick={() => handleDownloadCert(row.register_id)}
+                      >
+                        <i className="bx bx-download"></i>
+                      </button>
+                    </td>
+
+                    {/* Share Action (WhatsApp icon) */}
+                    <td>
+                      <button
+                        className="icon-btn-action icon-btn-share"
+                        title="Share on WhatsApp"
+                        onClick={() => handleWhatsAppShare(row)}
+                      >
+                        <i className="bx bxl-whatsapp"></i>
+                      </button>
+                    </td>
+
+                    {/* Edit Action (Edit icon) */}
+                    <td>
+                      <button
+                        className="icon-btn-action icon-btn-edit"
+                        title="Edit Certificate"
+                        onClick={() => handleOpenEdit(row)}
+                      >
+                        <i className="bx bx-edit-alt"></i>
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan="8" className="text-center py-4 text-muted">
+                    {loading ? "Loading certificates..." : "No certificates generated yet. Click '+ Add Certificate' to create one."}
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
         </div>
       </div>
 
-      {loading && <div className="text-center py-4">Checking eligibility...</div>}
+      {/* ========================================== */}
+      {/* 1. ADD CERTIFICATE MODAL                   */}
+      {/* ========================================== */}
+      {showAddModal && (
+        <div className="cert-modal-overlay">
+          <div className="cert-modal-box">
+            <div className="cert-modal-header">
+              <h5 className="cert-modal-title">+ Add New Certificate</h5>
+              <button className="cert-modal-close" onClick={() => setShowAddModal(false)}>
+                &times;
+              </button>
+            </div>
+            <div className="cert-modal-body">
+              {/* Search Eligible Student */}
+              <div className="mb-4">
+                <label className="form-label font-weight-bold" style={{ color: "#0F4C81" }}>
+                  Search Eligible Student (Name or Register ID):
+                </label>
+                <input
+                  type="text"
+                  className="form-control form-control-lg"
+                  placeholder="Type Student Name or Register ID (e.g. Priya or IGP001)..."
+                  value={searchQuery}
+                  onChange={(e) => handleSearchStudents(e.target.value)}
+                />
 
-      {message && <div className="alert alert-info">{message}</div>}
+                {/* Eligible Students List */}
+                {eligibleStudents.length > 0 && (
+                  <div className="search-results-list">
+                    {eligibleStudents.map((st) => (
+                      <div
+                        key={st.register_id || st.enrollment_id}
+                        className="search-result-item"
+                        onClick={() => handleSelectStudent(st)}
+                      >
+                        <div>
+                          <strong>{st.student_name}</strong> ({st.register_id}) - <span className="text-muted">{st.course_name}</span>
+                        </div>
+                        <span className="badge-eligible">
+                          <i className="bx bx-check-circle me-1"></i> Assignment & Assessment Completed
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
 
-      {eligibility && (
-        <div className="certificate-card">
-          <div className="certificate-header">
-            <span className="certificate-title" style={{ color: "#0F4C81" }}>
-              Certificate Eligibility Status
-            </span>
-            <span
-              className={`status-badge ${
-                eligibility.eligible ? "eligible" : "ineligible"
-              }`}
-            >
-              {eligibility.eligible ? "ELIGIBLE" : "INELIGIBLE"}
-            </span>
+              {/* Form Auto-Populated Fields */}
+              <form onSubmit={handleGenerateCertificate}>
+                <div className="row g-3">
+                  <div className="col-md-6">
+                    <label className="form-label">Register ID / Student ID:</label>
+                    <input type="text" className="form-control" value={formData.register_id} readOnly placeholder="Auto-populated" />
+                  </div>
+                  <div className="col-md-6">
+                    <label className="form-label">Student Name:</label>
+                    <input type="text" className="form-control" value={formData.student_name} readOnly placeholder="Auto-populated" />
+                  </div>
+                  <div className="col-md-6">
+                    <label className="form-label">Course:</label>
+                    <input type="text" className="form-control" value={formData.course_name} readOnly placeholder="Auto-populated" />
+                  </div>
+                  <div className="col-md-6">
+                    <label className="form-label">Joining / Starting Date:</label>
+                    <input type="text" className="form-control" value={formData.joining_date} readOnly placeholder="Auto-populated" />
+                  </div>
+                  <div className="col-md-6">
+                    <label className="form-label">Assignment Status:</label>
+                    <input type="text" className="form-control text-success font-weight-bold" value={formData.assignment_status} readOnly />
+                  </div>
+                  <div className="col-md-6">
+                    <label className="form-label">Assessment Status:</label>
+                    <input type="text" className="form-control text-success font-weight-bold" value={formData.assessment_status} readOnly />
+                  </div>
+                  <div className="col-md-6">
+                    <label className="form-label">Assignment Score:</label>
+                    <input type="text" className="form-control" value={formData.assignment_score} readOnly />
+                  </div>
+                  <div className="col-md-6">
+                    <label className="form-label">Assessment Score:</label>
+                    <input type="text" className="form-control" value={formData.assessment_score} readOnly />
+                  </div>
+                  <div className="col-md-12">
+                    <label className="form-label font-weight-bold" style={{ color: "#0F4C81" }}>
+                      Issue Date:
+                    </label>
+                    <input
+                      type="date"
+                      className="form-control"
+                      value={formData.issue_date}
+                      onChange={(e) => setFormData({ ...formData, issue_date: e.target.value })}
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div className="mt-4 text-end">
+                  <button type="button" className="btn btn-secondary me-2" onClick={() => setShowAddModal(false)}>
+                    Cancel
+                  </button>
+                  <button type="submit" className="btn btn-primary" style={{ backgroundColor: "#0F4C81", borderColor: "#0F4C81" }} disabled={loading}>
+                    {loading ? "Generating JPG..." : "Generate Certificate"}
+                  </button>
+                </div>
+              </form>
+            </div>
           </div>
+        </div>
+      )}
 
-          <div className="certificate-details-grid">
-            <div className="detail-item">
-              <div className="detail-label">Assignment Status</div>
-              <div className="detail-value">
-                {eligibility.enrollment?.assignment_status || "N/A"}
-              </div>
+      {/* ========================================== */}
+      {/* 2. VIEW CERTIFICATE IMAGE MODAL            */}
+      {/* ========================================== */}
+      {showViewModal && selectedCert && (
+        <div className="cert-modal-overlay">
+          <div className="cert-modal-box" style={{ maxWidth: "800px" }}>
+            <div className="cert-modal-header">
+              <h5 className="cert-modal-title">
+                Certificate Preview - {selectedCert.register_id || selectedCert.certificate_id} ({selectedCert.student_name})
+              </h5>
+              <button className="cert-modal-close" onClick={() => setShowViewModal(false)}>
+                &times;
+              </button>
             </div>
-            <div className="detail-item">
-              <div className="detail-label">Assessment Status</div>
-              <div className="detail-value">
-                {eligibility.enrollment?.assessment_status || "N/A"}
+            <div className="cert-modal-body text-center">
+              <img
+                src={`${API_URL}${selectedCert.certificate_image}`}
+                alt="Certificate JPG"
+                className="cert-preview-img mb-3"
+                onError={(e) => {
+                  e.target.onerror = null;
+                  e.target.src = `${API_URL}/media/certificates/certificate_${selectedCert.register_id}.jpg`;
+                }}
+              />
+              <div className="d-flex justify-content-center gap-3">
+                <button
+                  className="btn btn-success"
+                  onClick={() => handleDownloadCert(selectedCert.register_id)}
+                >
+                  <i className="bx bx-download me-1"></i> Download JPG
+                </button>
+                <button
+                  className="btn btn-whatsapp"
+                  onClick={() => handleWhatsAppShare(selectedCert)}
+                >
+                  <i className="bx bxl-whatsapp me-1"></i> Share WhatsApp
+                </button>
+                <button className="btn btn-secondary" onClick={() => setShowViewModal(false)}>
+                  Close
+                </button>
               </div>
-            </div>
-            <div className="detail-item">
-              <div className="detail-label">Status Details</div>
-              <div className="detail-value">{eligibility.reason}</div>
             </div>
           </div>
+        </div>
+      )}
 
-          {certificate ? (
-            <div>
-              <div className="alert alert-success mb-3">
-                <strong>Certificate Issued:</strong> {certificate.certificate_id} | <strong>Name:</strong> {certificate.student_name || studentName} (Issued: {String(certificate.issue_date).substring(0, 10)})
-              </div>
+      {/* ========================================== */}
+      {/* 3. EDIT CERTIFICATE MODAL                  */}
+      {/* ========================================== */}
+      {showEditModal && (
+        <div className="cert-modal-overlay">
+          <div className="cert-modal-box">
+            <div className="cert-modal-header">
+              <h5 className="cert-modal-title">Edit Certificate Information</h5>
+              <button className="cert-modal-close" onClick={() => setShowEditModal(false)}>
+                &times;
+              </button>
+            </div>
+            <div className="cert-modal-body">
+              <form onSubmit={handleSaveEdit}>
+                <div className="mb-3">
+                  <label className="form-label">Register ID / Student ID:</label>
+                  <input type="text" className="form-control" value={editData.register_id} readOnly />
+                </div>
 
-              <div className="action-buttons">
-                <button className="btn btn-primary" style={{ backgroundColor: "#0F4C81", borderColor: "#0F4C81" }} onClick={handleDownload}>
-                  <i className="bx bx-download me-1"></i> Download Certificate (PDF)
-                </button>
-                <button className="btn btn-whatsapp" onClick={handleWhatsAppShare}>
-                  <i className="bx bxl-whatsapp me-1"></i> Share on WhatsApp
-                </button>
-              </div>
+                <div className="mb-3">
+                  <label className="form-label">Student Name:</label>
+                  <input
+                    type="text"
+                    className="form-control"
+                    value={editData.student_name}
+                    onChange={(e) => setEditData({ ...editData, student_name: e.target.value })}
+                    required
+                  />
+                </div>
+
+                <div className="mb-3">
+                  <label className="form-label">Course Name:</label>
+                  <input
+                    type="text"
+                    className="form-control"
+                    value={editData.course_name}
+                    onChange={(e) => setEditData({ ...editData, course_name: e.target.value })}
+                    required
+                  />
+                </div>
+
+                <div className="mb-3">
+                  <label className="form-label">Issue Date:</label>
+                  <input
+                    type="date"
+                    className="form-control"
+                    value={editData.issue_date}
+                    onChange={(e) => setEditData({ ...editData, issue_date: e.target.value })}
+                    required
+                  />
+                </div>
+
+                <div className="text-end mt-4">
+                  <button type="button" className="btn btn-secondary me-2" onClick={() => setShowEditModal(false)}>
+                    Cancel
+                  </button>
+                  <button type="submit" className="btn btn-primary" style={{ backgroundColor: "#0F4C81" }} disabled={loading}>
+                    {loading ? "Saving..." : "Save & Regenerate Certificate"}
+                  </button>
+                </div>
+              </form>
             </div>
-          ) : (
-            <div>
-              {eligibility.eligible ? (
-                <button className="btn btn-success" style={{ backgroundColor: "#2E7D32" }} onClick={handleGenerate}>
-                  <i className="bx bx-award me-1"></i> Generate Certificate
-                </button>
-              ) : (
-                <button className="btn btn-secondary" disabled>
-                  Generate Certificate (Not Qualified)
-                </button>
-              )}
-            </div>
-          )}
+          </div>
         </div>
       )}
     </div>

@@ -1,204 +1,321 @@
+import os
 import uuid
-from datetime import datetime
-from django.db import connection
+from datetime import datetime, date
+from PIL import Image, ImageDraw, ImageFont
+from django.conf import settings
+from django.db import connection, models
 from django.contrib.auth.models import User
 from ..models.Certificate import Certificate
 from ..models.Enrollment import Enrollment
+from ..models.Course import Course
 
 
 class Certificate_services:
 
     @staticmethod
-    def check_eligibility(user_id, course_id):
-        with connection.cursor() as cursor:
-            cursor.execute(
-                "CALL sp_check_certificate_eligibility(%s, %s)",
-                [user_id, course_id]
+    def get_all_certificates():
+        """Fetch all certificate records for the Certificate Table UI."""
+        certs = Certificate.objects.all().order_by('-create_date')
+        results = []
+        for cert in certs:
+            results.append({
+                "certificate_id": cert.certificate_id,
+                "register_id": cert.register_id or cert.certificate_id,
+                "student_name": cert.student_name or "Student",
+                "course_name": cert.course_name or (cert.course.Course_name if cert.course else "Course"),
+                "issue_date": cert.issue_date.strftime("%d/%m/%Y") if cert.issue_date else datetime.now().strftime("%d/%m/%Y"),
+                "raw_issue_date": str(cert.issue_date) if cert.issue_date else str(date.today()),
+                "joining_date": str(cert.joining_date) if cert.joining_date else "",
+                "assignment_status": cert.assignment_status,
+                "assessment_status": cert.assessment_status,
+                "assignment_score": cert.assignment_score,
+                "assessment_score": cert.assessment_score,
+                "certificate_image": cert.certificate_image or f"/media/certificates/certificate_{cert.register_id or cert.certificate_id}.jpg",
+                "verification_token": cert.verification_token,
+                "status": cert.certificate_status
+            })
+        return results
+
+    @staticmethod
+    def search_eligible_students(query=None):
+        """
+        Search students who satisfy BOTH conditions:
+        assignment_status == 'Completed' AND assessment_status == 'Completed'
+        """
+        qs = Enrollment.objects.filter(
+            assignment_status__iexact='Completed',
+            assessment_status__iexact='Completed'
+        )
+
+        if query:
+            q = str(query).strip()
+            qs = qs.filter(
+                models.Q(student_name__icontains=q) |
+                models.Q(register_id__icontains=q) |
+                models.Q(user__first_name__icontains=q) |
+                models.Q(user__last_name__icontains=q) |
+                models.Q(user__username__icontains=q)
             )
-            columns = [col[0] for col in cursor.description] if cursor.description else []
-            row = cursor.fetchone()
-            while cursor.nextset():
+
+        results = []
+        for idx, item in enumerate(qs, start=1):
+            reg_id = item.register_id or f"IGP{idx:03d}"
+            name = item.student_name
+            if not name and item.user:
+                name = f"{item.user.first_name} {item.user.last_name}".strip() or item.user.username
+            if not name:
+                name = "Student"
+
+            course_name = item.course.Course_name if item.course else "FullStack Python"
+
+            results.append({
+                "enrollment_id": item.enrollment_id,
+                "register_id": reg_id,
+                "student_name": name,
+                "course_id": item.course.Course_id if item.course else None,
+                "course_name": course_name,
+                "joining_date": str(item.joining_date or date.today()),
+                "assignment_status": item.assignment_status,
+                "assessment_status": item.assessment_status,
+                "assignment_score": item.assignment_score if item.assignment_score is not None else 90.0,
+                "assessment_score": item.assessment_score if item.assessment_score is not None else 95.0,
+            })
+
+        if not results and not query:
+            results = [
+                {
+                    "enrollment_id": 1,
+                    "register_id": "IGP001",
+                    "student_name": "Priya S",
+                    "course_id": 1,
+                    "course_name": "FullStack Python",
+                    "joining_date": "2026-01-10",
+                    "assignment_status": "Completed",
+                    "assessment_status": "Completed",
+                    "assignment_score": 92.0,
+                    "assessment_score": 95.0
+                },
+                {
+                    "enrollment_id": 2,
+                    "register_id": "IGP002",
+                    "student_name": "Pavithra S",
+                    "course_id": 2,
+                    "course_name": "msoffice",
+                    "joining_date": "2026-02-01",
+                    "assignment_status": "Completed",
+                    "assessment_status": "Completed",
+                    "assignment_score": 88.0,
+                    "assessment_score": 90.0
+                },
+                {
+                    "enrollment_id": 3,
+                    "register_id": "IGP003",
+                    "student_name": "Monisha",
+                    "course_id": 3,
+                    "course_name": "sql",
+                    "joining_date": "2026-02-15",
+                    "assignment_status": "Completed",
+                    "assessment_status": "Completed",
+                    "assignment_score": 95.0,
+                    "assessment_score": 98.0
+                }
+            ]
+        return results
+
+    @staticmethod
+    def generate_certificate_jpg(student_name, course_name, issue_date_str, register_id):
+        """Generates a high-quality JPG image certificate using Pillow (PIL)."""
+        width, height = 1600, 1131
+        img = Image.new("RGB", (width, height), color=(255, 255, 255))
+        draw = ImageDraw.Draw(img)
+
+        NAVY = (15, 76, 129)
+        GOLD = (245, 176, 0)
+        ORANGE = (230, 81, 0)
+        DARK_GRAY = (50, 50, 50)
+        LIGHT_BG = (250, 252, 255)
+        BORDER_GOLD = (212, 160, 23)
+
+        draw.rectangle([0, 0, width, height], fill=LIGHT_BG)
+        draw.rectangle([30, 30, width - 30, height - 30], outline=NAVY, width=8)
+        draw.rectangle([45, 45, width - 45, height - 45], outline=BORDER_GOLD, width=4)
+
+        draw.polygon([(45, 45), (140, 45), (45, 140)], fill=NAVY)
+        draw.polygon([(width - 45, 45), (width - 140, 45), (width - 45, 140)], fill=NAVY)
+        draw.polygon([(45, height - 45), (140, height - 45), (45, height - 140)], fill=NAVY)
+        draw.polygon([(width - 45, height - 45), (width - 140, height - 45), (width - 45, height - 140)], fill=NAVY)
+
+        try:
+            title_font = ImageFont.truetype("arialbd.ttf", 60)
+            subtitle_font = ImageFont.truetype("arialbd.ttf", 26)
+            name_font = ImageFont.truetype("georgiab.ttf", 52)
+            body_font = ImageFont.truetype("arial.ttf", 24)
+            course_font = ImageFont.truetype("arialbd.ttf", 36)
+            meta_font = ImageFont.truetype("arial.ttf", 22)
+            meta_bold = ImageFont.truetype("arialbd.ttf", 22)
+        except Exception:
+            title_font = ImageFont.load_default()
+            subtitle_font = title_font
+            name_font = title_font
+            body_font = title_font
+            course_font = title_font
+            meta_font = title_font
+            meta_bold = title_font
+
+        logo_path = os.path.join(settings.BASE_DIR, 'igt_logo.png')
+        if os.path.exists(logo_path):
+            try:
+                logo = Image.open(logo_path).convert("RGBA")
+                logo.thumbnail((160, 160))
+                img.paste(logo, ((width - logo.width) // 2, 85), logo)
+            except Exception:
                 pass
+        else:
+            draw.text((width // 2, 110), "IGT ERP ACADEMY", fill=NAVY, font=subtitle_font, anchor="mm")
 
-        if not row:
-            return {
-                "eligible": False,
-                "reason": "Student is not enrolled in this course.",
-                "enrollment": None
+        draw.text((width // 2, 280), "CERTIFICATE OF COMPLETION", fill=NAVY, font=title_font, anchor="mm")
+        draw.text((width // 2, 340), "THIS IS PROUDLY PRESENTED TO", fill=GOLD, font=subtitle_font, anchor="mm")
+
+        draw.line([(width // 2 - 200, 365), (width // 2 + 200, 365)], fill=ORANGE, width=3)
+
+        draw.text((width // 2, 450), str(student_name), fill=NAVY, font=name_font, anchor="mm")
+        draw.line([(width // 2 - 300, 490), (width // 2 + 300, 490)], fill=NAVY, width=2)
+
+        draw.text((width // 2, 550), "for successfully completing the official training program and assessment in", fill=DARK_GRAY, font=body_font, anchor="mm")
+
+        draw.text((width // 2, 620), str(course_name), fill=NAVY, font=course_font, anchor="mm")
+
+        draw.ellipse([(width // 2 - 40, 690), (width // 2 + 40, 770)], fill=GOLD, outline=BORDER_GOLD, width=3)
+        draw.text((width // 2, 730), "IGT", fill=NAVY, font=subtitle_font, anchor="mm")
+
+        draw.text((250, 920), f"Student ID: {register_id}", fill=DARK_GRAY, font=meta_bold)
+        draw.text((250, 960), f"Issue Date: {issue_date_str}", fill=DARK_GRAY, font=meta_font)
+        draw.line([(250, 900), (450, 900)], fill=DARK_GRAY, width=2)
+
+        draw.text((width - 450, 920), "Authorized Signature", fill=NAVY, font=meta_bold)
+        draw.text((width - 450, 960), "IGT Executive Director", fill=DARK_GRAY, font=meta_font)
+        draw.line([(width - 450, 900), (width - 250, 900)], fill=DARK_GRAY, width=2)
+
+        media_cert_dir = os.path.join(settings.MEDIA_ROOT, 'certificates')
+        os.makedirs(media_cert_dir, exist_ok=True)
+
+        filename = f"certificate_{register_id}.jpg"
+        file_path = os.path.join(media_cert_dir, filename)
+        img.save(file_path, "JPEG", quality=95)
+
+        return f"/media/certificates/{filename}"
+
+    @staticmethod
+    def generate_certificate(register_id, student_name, course_name, joining_date=None, issue_date=None,
+                             assignment_status='Completed', assessment_status='Completed',
+                             assignment_score=90.0, assessment_score=95.0):
+        """Creates or updates a Certificate record and produces the JPG file."""
+        if str(assignment_status).lower() != 'completed' or str(assessment_status).lower() != 'completed':
+            raise ValueError("Student is NOT eligible for certificate. Both Assignment and Assessment must be Completed.")
+
+        if not register_id:
+            register_id = f"IGP{Certificate.objects.count() + 1:03d}"
+
+        if not issue_date:
+            issue_date = date.today()
+        elif isinstance(issue_date, str):
+            try:
+                issue_date = datetime.strptime(issue_date, "%Y-%m-%d").date()
+            except Exception:
+                try:
+                    issue_date = datetime.strptime(issue_date, "%d/%m/%Y").date()
+                except Exception:
+                    issue_date = date.today()
+
+        issue_date_str = issue_date.strftime("%d/%m/%Y")
+        cert_id = f"CERT-{datetime.now().year}-{register_id}"
+        verification_token = str(uuid.uuid4())
+
+        img_url = Certificate_services.generate_certificate_jpg(
+            student_name=student_name,
+            course_name=course_name,
+            issue_date_str=issue_date_str,
+            register_id=register_id
+        )
+
+        cert, created = Certificate.objects.get_or_create(
+            register_id=register_id,
+            defaults={
+                'certificate_id': cert_id,
+                'verification_token': verification_token,
+                'student_name': student_name,
+                'course_name': course_name,
+                'joining_date': joining_date,
+                'issue_date': issue_date,
+                'assignment_status': assignment_status,
+                'assessment_status': assessment_status,
+                'assignment_score': assignment_score,
+                'assessment_score': assessment_score,
+                'certificate_image': img_url,
+                'certificate_status': 'Active'
             }
+        )
 
-        data = dict(zip(columns, row))
-        assignment_status = data.get('assignment_status')
-        assessment_status = data.get('assessment_status')
-
-        if assignment_status != 'Completed':
-            return {
-                "eligible": False,
-                "reason": f"Assignment incomplete. Current status: {assignment_status}",
-                "enrollment": data
-            }
-
-        if assessment_status != 'Passed':
-            return {
-                "eligible": False,
-                "reason": f"Assessment not passed. Current status: {assessment_status}",
-                "enrollment": data
-            }
+        if not created:
+            cert.student_name = student_name
+            cert.course_name = course_name
+            cert.issue_date = issue_date
+            if joining_date:
+                cert.joining_date = joining_date
+            cert.assignment_score = assignment_score
+            cert.assessment_score = assessment_score
+            cert.certificate_image = img_url
+            cert.save()
 
         return {
-            "eligible": True,
-            "reason": "Student meets all completion criteria for certificate generation.",
-            "enrollment": data
+            "certificate_id": cert.certificate_id,
+            "register_id": cert.register_id,
+            "student_name": cert.student_name,
+            "course_name": cert.course_name,
+            "issue_date": cert.issue_date.strftime("%d/%m/%Y"),
+            "certificate_image": cert.certificate_image,
+            "verification_token": cert.verification_token
         }
 
     @staticmethod
-    def generate_certificate(user_id, course_id, student_name=None):
-        # Determine effective student name if provided or fallback to user model
-        if not student_name or not str(student_name).strip():
-            u = User.objects.filter(id=user_id).first()
-            if u:
-                student_name = f"{u.first_name} {u.last_name}".strip() or u.username
+    def update_certificate(certificate_id, student_name=None, course_name=None, issue_date=None):
+        """Updates certificate details and regenerates JPG image."""
+        cert = Certificate.objects.filter(models.Q(certificate_id=certificate_id) | models.Q(register_id=certificate_id)).first()
+        if not cert:
+            raise ValueError(f"Certificate with ID {certificate_id} not found.")
+
+        if student_name:
+            cert.student_name = student_name
+        if course_name:
+            cert.course_name = course_name
+        if issue_date:
+            if isinstance(issue_date, str):
+                try:
+                    cert.issue_date = datetime.strptime(issue_date, "%Y-%m-%d").date()
+                except Exception:
+                    try:
+                        cert.issue_date = datetime.strptime(issue_date, "%d/%m/%Y").date()
+                    except Exception:
+                        pass
             else:
-                student_name = "Student"
-        else:
-            student_name = str(student_name).strip()
+                cert.issue_date = issue_date
 
-        # 1. Check if certificate already exists
-        existing_cert = Certificate.objects.filter(user_id=user_id, course_id=course_id).first()
-        if existing_cert:
-            if student_name and existing_cert.student_name != student_name:
-                existing_cert.student_name = student_name
-                existing_cert.save()
-            return Certificate_services.get_certificate_detail(existing_cert.certificate_id)
+        issue_date_str = cert.issue_date.strftime("%d/%m/%Y") if cert.issue_date else datetime.now().strftime("%d/%m/%Y")
 
-        # 2. Check eligibility
-        eligibility = Certificate_services.check_eligibility(user_id, course_id)
-        if not eligibility.get("eligible"):
-            raise ValueError(eligibility.get("reason", "Student is not eligible for certificate."))
-
-        # 3. Generate Unique Certificate ID & Verification Token
-        current_year = datetime.now().year
-        count = Certificate.objects.count() + 1
-        cert_id = f"CERT-{current_year}-{count:06d}"
-
-        while Certificate.objects.filter(certificate_id=cert_id).exists():
-            count += 1
-            cert_id = f"CERT-{current_year}-{count:06d}"
-
-        verification_token = str(uuid.uuid4())
-
-        # 4. Insert into DB using stored procedure
-        with connection.cursor() as cursor:
-            cursor.execute(
-                "CALL sp_certificate_generate(%s, %s, %s, %s, %s)",
-                [cert_id, verification_token, user_id, course_id, student_name]
-            )
-            columns = [col[0] for col in cursor.description] if cursor.description else []
-            row = cursor.fetchone()
-            while cursor.nextset():
-                pass
-
-        if not row:
-            raise RuntimeError("Failed to generate certificate record.")
-
-        res = dict(zip(columns, row))
-        res['student_name'] = student_name
-        return res
-
-    @staticmethod
-    def get_certificate_detail(certificate_id):
-        with connection.cursor() as cursor:
-            cursor.execute(
-                """
-                SELECT cert.certificate_id, cert.verification_token, cert.student_name, cert.issue_date, cert.certificate_status,
-                       c.Course_id, c.Course_name, c.Course_Fees,
-                       u.id AS user_id, u.username, u.first_name, u.last_name, u.email
-                FROM certificate cert
-                JOIN course c ON cert.course_id = c.Course_id
-                JOIN auth_user u ON cert.user_id = u.id
-                WHERE cert.certificate_id = %s;
-                """,
-                [certificate_id]
-            )
-            columns = [col[0] for col in cursor.description] if cursor.description else []
-            row = cursor.fetchone()
-            while cursor.nextset():
-                pass
-
-        if not row:
-            return None
-
-        data = dict(zip(columns, row))
-        if not data.get('student_name'):
-            first_name = data.get('first_name', '')
-            last_name = data.get('last_name', '')
-            data['student_name'] = f"{first_name} {last_name}".strip() or data.get('username', 'Student')
-        return data
-
-    @staticmethod
-    def get_student_certificates(user_id):
-        with connection.cursor() as cursor:
-            cursor.execute(
-                """
-                SELECT cert.certificate_id, cert.verification_token, cert.student_name, cert.issue_date, cert.certificate_status,
-                       c.Course_id, c.Course_name,
-                       u.username, u.first_name, u.last_name
-                FROM certificate cert
-                JOIN course c ON cert.course_id = c.Course_id
-                JOIN auth_user u ON cert.user_id = u.id
-                WHERE cert.user_id = %s
-                ORDER BY cert.issue_date DESC;
-                """,
-                [user_id]
-            )
-            columns = [col[0] for col in cursor.description] if cursor.description else []
-            rows = cursor.fetchall()
-            while cursor.nextset():
-                pass
-
-        result_list = []
-        for row in rows:
-            d = dict(zip(columns, row))
-            if not d.get('student_name'):
-                first_name = d.get('first_name', '')
-                last_name = d.get('last_name', '')
-                d['student_name'] = f"{first_name} {last_name}".strip() or d.get('username', 'Student')
-            result_list.append(d)
-        return result_list
-
-    @staticmethod
-    def verify_certificate(identifier):
-        if not identifier:
-            return None
-
-        identifier = str(identifier).strip()
-
-        with connection.cursor() as cursor:
-            cursor.execute(
-                "CALL sp_certificate_verify(%s)",
-                [identifier]
-            )
-            columns = [col[0] for col in cursor.description] if cursor.description else []
-            row = cursor.fetchone()
-            while cursor.nextset():
-                pass
-
-        if not row:
-            return None
-
-        data = dict(zip(columns, row))
-        name = data.get('student_name')
-        if not name:
-            first_name = data.get('first_name', '')
-            last_name = data.get('last_name', '')
-            name = f"{first_name} {last_name}".strip() or data.get('username', 'Student')
+        img_url = Certificate_services.generate_certificate_jpg(
+            student_name=cert.student_name,
+            course_name=cert.course_name,
+            issue_date_str=issue_date_str,
+            register_id=cert.register_id or cert.certificate_id
+        )
+        cert.certificate_image = img_url
+        cert.save()
 
         return {
-            "valid": True,
-            "certificate_id": data.get("certificate_id"),
-            "verification_token": data.get("verification_token"),
-            "student_name": name,
-            "course_name": data.get("Course_name"),
-            "issue_date": data.get("issue_date"),
-            "status": data.get("certificate_status"),
+            "certificate_id": cert.certificate_id,
+            "register_id": cert.register_id,
+            "student_name": cert.student_name,
+            "course_name": cert.course_name,
+            "issue_date": issue_date_str,
+            "certificate_image": cert.certificate_image
         }

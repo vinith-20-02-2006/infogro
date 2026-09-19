@@ -1,8 +1,6 @@
 from django.db import models
 from datetime import datetime
 
-from django.db import models
-
 
 class Course(models.Model):
 
@@ -33,7 +31,8 @@ class Course(models.Model):
         auto_now=True
     )
 
-  
+    class Meta:
+        db_table = 'course'
 
     def __str__(self):
         return self.Course_name
