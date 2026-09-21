@@ -19,5 +19,4 @@ urlpatterns += [
     path('generate_certificate', Certificate_views.GenerateCertificate.as_view(), name='generate_certificate'),
     path('update_certificate', Certificate_views.UpdateCertificate.as_view(), name='update_certificate'),
     path('download_certificate_jpg', Certificate_views.DownloadCertificateJPG.as_view(), name='download_certificate_jpg'),
-    path('verify_certificate', Certificate_views.VerifyCertificate.as_view(), name='verify_certificate'),
 ]

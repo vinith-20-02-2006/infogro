@@ -142,9 +142,17 @@ class Course_services:
         if not row:
             return None
 
-        return dict(
-            zip(columns, row)
-        )
+        result = dict(zip(columns, row))
+
+        # Notify certificate application to update and re-render certificate images for this course
+        try:
+            from certificate_application.services import Certificate_services
+            Certificate_services.on_course_name_updated(Course_id, Course_name)
+        except Exception:
+            pass
+
+        return result
+
 
     # ---------------------------------
     # DELETE COURSE

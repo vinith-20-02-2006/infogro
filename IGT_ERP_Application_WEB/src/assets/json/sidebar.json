@@ -16,14 +16,7 @@
     "icon": "menu-icon tf-icons bx bx-award",
     "iconopen": "menu-link "
   },
-  {
-    "title": "Verify Certificate",
-    "path": "/verify-certificate",
-    "active": "btn-primary",
-    "element": "<CertificateVerify/>",
-    "icon": "menu-icon tf-icons bx bx-check-shield",
-    "iconopen": "menu-link "
-  },
+
    
    
     

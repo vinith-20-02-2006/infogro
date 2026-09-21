@@ -6,7 +6,7 @@ from rest_framework import serializers, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from ..services.Certificate_services import Certificate_services
+from .services import Certificate_services
 
 logger = logging.getLogger('django')
 
@@ -52,6 +52,7 @@ class GenerateCertificate(APIView):
         assessment_status = serializers.CharField(default='Completed')
         assignment_score = serializers.FloatField(required=False, default=90.0)
         assessment_score = serializers.FloatField(required=False, default=95.0)
+        course_id = serializers.IntegerField(required=False, allow_null=True)
 
     def post(self, request):
         serializer = self.InputSerializer(data=request.data)
@@ -69,6 +70,7 @@ class GenerateCertificate(APIView):
                 assessment_status=data.get('assessment_status', 'Completed'),
                 assignment_score=data.get('assignment_score', 90.0),
                 assessment_score=data.get('assessment_score', 95.0),
+                course_id=data.get('course_id')
             )
             return Response({
                 "message": "Certificate issued successfully.",
@@ -121,12 +123,10 @@ class DownloadCertificateJPG(APIView):
         if not register_id:
             return Response({"message": "register_id parameter is required."}, status=status.HTTP_400_BAD_REQUEST)
 
-        # Ensure filename format
         filename = f"certificate_{register_id}.jpg"
         file_path = os.path.join(settings.MEDIA_ROOT, 'certificates', filename)
 
         if not os.path.exists(file_path):
-            # Try finding by certificate_id or regenerating
             certs = Certificate_services.get_all_certificates()
             match = next((c for c in certs if c['register_id'] == register_id or c['certificate_id'] == register_id), None)
             if match:

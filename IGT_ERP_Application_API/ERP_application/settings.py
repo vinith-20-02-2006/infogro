@@ -44,11 +44,13 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
 
     'admin_application',
+    'certificate_application',
 
     'rest_framework',
     'rest_framework_simplejwt.token_blacklist',
     "corsheaders",
 ]
+
 
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [

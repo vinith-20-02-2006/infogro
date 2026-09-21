@@ -10,7 +10,6 @@ import Login from './authentication/Login';
 import Navbar from './dashboard/sidebar/Navbar';
 
 import Certificate from './dashboard/certificate/Certificate';
-import CertificateVerify from './dashboard/certificate/CertificateVerify';
 
 function App() {
   return (
@@ -21,7 +20,6 @@ function App() {
             <div className="layout-container">
               <Routes>
                 <Route path="/" element={<Login />} />
-                <Route path="/verify-certificate" element={<CertificateVerify />} />
                 <Route path="/*" element={<ProtectedRoutes />} />
               </Routes>
             </div>
@@ -31,6 +29,7 @@ function App() {
     </Router>
   );
 }
+
 
 function ProtectedRoutes() {
   return (
