@@ -1,4 +1,5 @@
 import os
+import io
 import uuid
 from datetime import datetime, date
 from PIL import Image, ImageDraw, ImageFont
@@ -20,10 +21,8 @@ class Certificate_services:
         for cert in certs:
             # Dynamically fetch effective course name from Course FK if available
             effective_course_name = cert.get_effective_course_name()
-
-            # Ensure JPG image reflects latest course name if needed
             issue_date_str = cert.issue_date.strftime("%d/%m/%Y") if cert.issue_date else datetime.now().strftime("%d/%m/%Y")
-            img_url = cert.certificate_image or f"/media/certificates/certificate_{cert.register_id or cert.certificate_id}.jpg"
+            img_url = f"/certificate/render_certificate_image?register_id={cert.register_id or cert.certificate_id}"
 
             results.append({
                 "certificate_id": cert.certificate_id,
@@ -130,8 +129,8 @@ class Certificate_services:
         return results
 
     @staticmethod
-    def generate_certificate_jpg(student_name, course_name, issue_date_str, register_id):
-        """Generates a high-quality JPG image certificate using Pillow (PIL)."""
+    def generate_certificate_image_bytes(student_name, course_name, issue_date_str, register_id):
+        """Generates a high-quality JPG image certificate in RAM using Pillow (PIL) and io.BytesIO without writing to disk."""
         width, height = 1600, 1131
         img = Image.new("RGB", (width, height), color=(255, 255, 255))
         draw = ImageDraw.Draw(img)
@@ -203,20 +202,21 @@ class Certificate_services:
         draw.text((width - 450, 960), "IGT Executive Director", fill=DARK_GRAY, font=meta_font)
         draw.line([(width - 450, 900), (width - 250, 900)], fill=DARK_GRAY, width=2)
 
-        media_cert_dir = os.path.join(settings.MEDIA_ROOT, 'certificates')
-        os.makedirs(media_cert_dir, exist_ok=True)
+        buffer = io.BytesIO()
+        img.save(buffer, "JPEG", quality=95)
+        buffer.seek(0)
+        return buffer.getvalue()
 
-        filename = f"certificate_{register_id}.jpg"
-        file_path = os.path.join(media_cert_dir, filename)
-        img.save(file_path, "JPEG", quality=95)
-
-        return f"/media/certificates/{filename}"
+    @staticmethod
+    def generate_certificate_jpg(student_name, course_name, issue_date_str, register_id):
+        """Returns the dynamic in-memory render endpoint URL for backward compatibility."""
+        return f"/certificate/render_certificate_image?register_id={register_id}"
 
     @staticmethod
     def generate_certificate(register_id, student_name, course_name, joining_date=None, issue_date=None,
                              assignment_status='Completed', assessment_status='Completed',
                              assignment_score=90.0, assessment_score=95.0, course_id=None):
-        """Creates or updates a Certificate record and produces the JPG file."""
+        """Creates or updates a Certificate record in the database."""
         if str(assignment_status).lower() != 'completed' or str(assessment_status).lower() != 'completed':
             raise ValueError("Student is NOT eligible for certificate. Both Assignment and Assessment must be Completed.")
 
@@ -234,7 +234,6 @@ class Certificate_services:
                 except Exception:
                     issue_date = date.today()
 
-        issue_date_str = issue_date.strftime("%d/%m/%Y")
         cert_id = f"CERT-{datetime.now().year}-{register_id}"
         verification_token = str(uuid.uuid4())
 
@@ -246,13 +245,7 @@ class Certificate_services:
             course_obj = Course.objects.filter(Course_name__iexact=str(course_name).strip()).first()
 
         effective_course_name = course_obj.Course_name if course_obj else (course_name or "Course")
-
-        img_url = Certificate_services.generate_certificate_jpg(
-            student_name=student_name,
-            course_name=effective_course_name,
-            issue_date_str=issue_date_str,
-            register_id=register_id
-        )
+        img_url = f"/certificate/render_certificate_image?register_id={register_id}"
 
         cert, created = Certificate.objects.get_or_create(
             register_id=register_id,
@@ -298,7 +291,7 @@ class Certificate_services:
 
     @staticmethod
     def update_certificate(certificate_id, student_name=None, course_name=None, issue_date=None):
-        """Updates certificate details and regenerates JPG image."""
+        """Updates certificate details in database."""
         cert = Certificate.objects.filter(models.Q(certificate_id=certificate_id) | models.Q(register_id=certificate_id)).first()
         if not cert:
             raise ValueError(f"Certificate with ID {certificate_id} not found.")
@@ -326,13 +319,8 @@ class Certificate_services:
 
         effective_course_name = cert.get_effective_course_name()
         issue_date_str = cert.issue_date.strftime("%d/%m/%Y") if cert.issue_date else datetime.now().strftime("%d/%m/%Y")
+        img_url = f"/certificate/render_certificate_image?register_id={cert.register_id or cert.certificate_id}"
 
-        img_url = Certificate_services.generate_certificate_jpg(
-            student_name=cert.student_name,
-            course_name=effective_course_name,
-            issue_date_str=issue_date_str,
-            register_id=cert.register_id or cert.certificate_id
-        )
         cert.certificate_image = img_url
         cert.save()
 
@@ -349,17 +337,11 @@ class Certificate_services:
     def on_course_name_updated(course_id, new_course_name):
         """
         Triggered when a Course's name is updated in the system.
-        Updates all associated certificates to immediately reflect the new course name on DB & JPG images.
+        Updates all associated certificates in database so dynamic view immediately renders new name.
         """
         certs = Certificate.objects.filter(models.Q(course_id=course_id) | models.Q(course_name__iexact=new_course_name))
         for cert in certs:
             cert.course_name = new_course_name
-            issue_date_str = cert.issue_date.strftime("%d/%m/%Y") if cert.issue_date else datetime.now().strftime("%d/%m/%Y")
-            img_url = Certificate_services.generate_certificate_jpg(
-                student_name=cert.student_name,
-                course_name=new_course_name,
-                issue_date_str=issue_date_str,
-                register_id=cert.register_id or cert.certificate_id
-            )
-            cert.certificate_image = img_url
+            cert.certificate_image = f"/certificate/render_certificate_image?register_id={cert.register_id or cert.certificate_id}"
             cert.save()
+

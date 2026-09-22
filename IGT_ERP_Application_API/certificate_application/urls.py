@@ -7,5 +7,7 @@ urlpatterns = [
     path('generate_certificate', views.GenerateCertificate.as_view(), name='generate_certificate'),
     path('update_certificate', views.UpdateCertificate.as_view(), name='update_certificate'),
     path('download_certificate_jpg', views.DownloadCertificateJPG.as_view(), name='download_certificate_jpg'),
+    path('render_certificate_image', views.RenderCertificateImage.as_view(), name='render_certificate_image'),
 ]
+
 

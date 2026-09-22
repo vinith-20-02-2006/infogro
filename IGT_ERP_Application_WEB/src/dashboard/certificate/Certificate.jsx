@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useCallback } from "react";
 import "./Certificate.css";
+import CertificateService from "../../services/CertificateService";
 
-const API_URL = "http://127.0.0.1:8000";
+const API_URL = CertificateService.getApiUrl();
 
 const Certificate = () => {
   const [certificates, setCertificates] = useState([]);
@@ -21,7 +22,6 @@ const Certificate = () => {
   // Search & Eligible Students State
   const [searchQuery, setSearchQuery] = useState("");
   const [eligibleStudents, setEligibleStudents] = useState([]);
-
 
   // Form Fields for Certificate Generation
   const [formData, setFormData] = useState({
@@ -49,11 +49,8 @@ const Certificate = () => {
   const fetchCertificates = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch(`${API_URL}/certificate/list_certificates`);
-      if (res.ok) {
-        const data = await res.json();
-        setCertificates(data);
-      }
+      const data = await CertificateService.listCertificates();
+      setCertificates(data);
     } catch (err) {
       console.error("Error fetching certificates:", err);
     } finally {
@@ -68,25 +65,9 @@ const Certificate = () => {
   // 2. Search Eligible Students
   const handleSearchStudents = async (query) => {
     setSearchQuery(query);
-    if (!query || query.trim().length === 0) {
-      try {
-        const res = await fetch(`${API_URL}/certificate/search_eligible_students`);
-        if (res.ok) {
-          const data = await res.json();
-          setEligibleStudents(data);
-        }
-      } catch (err) {
-        console.error("Search error:", err);
-      }
-      return;
-    }
-
     try {
-      const res = await fetch(`${API_URL}/certificate/search_eligible_students?q=${encodeURIComponent(query)}`);
-      if (res.ok) {
-        const data = await res.json();
-        setEligibleStudents(data);
-      }
+      const data = await CertificateService.searchEligibleStudents(query);
+      setEligibleStudents(data);
     } catch (err) {
       console.error("Search error:", err);
     }
@@ -113,7 +94,6 @@ const Certificate = () => {
   // 3. Select Eligible Student from Search Results -> Auto Populate Form
   const handleSelectStudent = (student) => {
     setFormData({
-
       register_id: student.register_id || "",
       student_name: student.student_name || "",
       course_name: student.course_name || "",
@@ -136,23 +116,13 @@ const Certificate = () => {
 
     setLoading(true);
     try {
-      const res = await fetch(`${API_URL}/certificate/generate_certificate`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData),
-      });
-
-      const data = await res.json();
-      if (res.ok) {
-        setMessage("Certificate generated successfully!");
-        setViewMode("list");
-        fetchCertificates();
-      } else {
-        alert(data.message || "Failed to generate certificate.");
-      }
+      await CertificateService.generateCertificate(formData);
+      setMessage("Certificate generated successfully!");
+      setViewMode("list");
+      fetchCertificates();
     } catch (err) {
       console.error("Generation error:", err);
-      alert("Error generating certificate.");
+      alert(err.message || "Error generating certificate.");
     } finally {
       setLoading(false);
     }
@@ -166,7 +136,7 @@ const Certificate = () => {
 
   // 6. Action: Download Certificate JPG
   const handleDownloadCert = (registerId) => {
-    const downloadUrl = `${API_URL}/certificate/download_certificate_jpg?register_id=${registerId}`;
+    const downloadUrl = CertificateService.getDownloadUrl(registerId);
     window.open(downloadUrl, "_blank");
   };
 
@@ -180,7 +150,6 @@ const Certificate = () => {
     const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(text)}`;
     window.open(whatsappUrl, "_blank");
   };
-
 
   // 8. Action: Open Edit Modal
   const handleOpenEdit = (cert) => {
@@ -200,22 +169,12 @@ const Certificate = () => {
     e.preventDefault();
     setLoading(true);
     try {
-      const res = await fetch(`${API_URL}/certificate/update_certificate`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(editData),
-      });
-
-      if (res.ok) {
-        setShowEditModal(false);
-        fetchCertificates();
-      } else {
-        const data = await res.json();
-        alert(data.message || "Failed to update certificate.");
-      }
+      await CertificateService.updateCertificate(editData);
+      setShowEditModal(false);
+      fetchCertificates();
     } catch (err) {
       console.error("Update error:", err);
-      alert("Error updating certificate.");
+      alert(err.message || "Error updating certificate.");
     } finally {
       setLoading(false);
     }
@@ -547,13 +506,9 @@ const Certificate = () => {
             </div>
             <div className="cert-modal-body text-center">
               <img
-                src={`${API_URL}${selectedCert.certificate_image}`}
+                src={`${API_URL}${selectedCert.certificate_image}${selectedCert.certificate_image?.includes('?') ? '&' : '?'}t=${Date.now()}`}
                 alt="Certificate JPG"
                 className="cert-preview-img mb-3"
-                onError={(e) => {
-                  e.target.onerror = null;
-                  e.target.src = `${API_URL}/media/certificates/certificate_${selectedCert.register_id}.jpg`;
-                }}
               />
               <div className="d-flex justify-content-center gap-3">
                 <button

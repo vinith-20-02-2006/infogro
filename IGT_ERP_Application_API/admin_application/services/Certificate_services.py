@@ -30,7 +30,7 @@ class Certificate_services:
                 "assessment_status": cert.assessment_status,
                 "assignment_score": cert.assignment_score,
                 "assessment_score": cert.assessment_score,
-                "certificate_image": cert.certificate_image or f"/media/certificates/certificate_{cert.register_id or cert.certificate_id}.jpg",
+                "certificate_image": cert.certificate_image or f"/certificate/render_certificate_image?register_id={cert.register_id or cert.certificate_id}",
                 "verification_token": cert.verification_token,
                 "status": cert.certificate_status
             })
@@ -196,14 +196,7 @@ class Certificate_services:
         draw.text((width - 450, 960), "IGT Executive Director", fill=DARK_GRAY, font=meta_font)
         draw.line([(width - 450, 900), (width - 250, 900)], fill=DARK_GRAY, width=2)
 
-        media_cert_dir = os.path.join(settings.MEDIA_ROOT, 'certificates')
-        os.makedirs(media_cert_dir, exist_ok=True)
-
-        filename = f"certificate_{register_id}.jpg"
-        file_path = os.path.join(media_cert_dir, filename)
-        img.save(file_path, "JPEG", quality=95)
-
-        return f"/media/certificates/{filename}"
+        return f"/certificate/render_certificate_image?register_id={register_id}"
 
     @staticmethod
     def generate_certificate(register_id, student_name, course_name, joining_date=None, issue_date=None,

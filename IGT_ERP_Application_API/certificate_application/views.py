@@ -1,11 +1,13 @@
-import os
+from datetime import datetime
 import logging
 from django.conf import settings
-from django.http import HttpResponse, FileResponse
+from django.db import models
+from django.http import HttpResponse
 from rest_framework import serializers, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from .models import Certificate
 from .services import Certificate_services
 
 logger = logging.getLogger('django')
@@ -39,7 +41,7 @@ class SearchEligibleStudents(APIView):
 
 
 # ==========================================
-# GENERATE CERTIFICATE (JPG)
+# GENERATE CERTIFICATE
 # ==========================================
 class GenerateCertificate(APIView):
     class InputSerializer(serializers.Serializer):
@@ -115,32 +117,68 @@ class UpdateCertificate(APIView):
 
 
 # ==========================================
-# DOWNLOAD CERTIFICATE JPG FILE
+# RENDER CERTIFICATE IMAGE FROM DATABASE
 # ==========================================
-class DownloadCertificateJPG(APIView):
+class RenderCertificateImage(APIView):
+    """
+    Fetches certificate data dynamically from database and streams high-res JPG image directly from memory.
+    Does NOT read from or write to disk filesystem.
+    """
     def get(self, request):
         register_id = request.GET.get('register_id') or request.GET.get('certificate_id') or request.GET.get('id')
         if not register_id:
             return Response({"message": "register_id parameter is required."}, status=status.HTTP_400_BAD_REQUEST)
 
-        filename = f"certificate_{register_id}.jpg"
-        file_path = os.path.join(settings.MEDIA_ROOT, 'certificates', filename)
+        cert = Certificate.objects.filter(models.Q(register_id=register_id) | models.Q(certificate_id=register_id)).first()
+        if not cert:
+            return Response({"message": f"Certificate with ID '{register_id}' not found in database."}, status=status.HTTP_404_NOT_FOUND)
 
-        if not os.path.exists(file_path):
-            certs = Certificate_services.get_all_certificates()
-            match = next((c for c in certs if c['register_id'] == register_id or c['certificate_id'] == register_id), None)
-            if match:
-                Certificate_services.generate_certificate_jpg(
-                    student_name=match['student_name'],
-                    course_name=match['course_name'],
-                    issue_date_str=match['issue_date'],
-                    register_id=match['register_id']
-                )
+        student_name = cert.student_name or "Student"
+        course_name = cert.get_effective_course_name()
+        issue_date_str = cert.issue_date.strftime("%d/%m/%Y") if cert.issue_date else datetime.now().strftime("%d/%m/%Y")
 
-        if os.path.exists(file_path):
-            response = FileResponse(open(file_path, 'rb'), content_type='image/jpeg')
-            response['Content-Disposition'] = f'attachment; filename="{filename}"'
-            return response
+        image_bytes = Certificate_services.generate_certificate_image_bytes(
+            student_name=student_name,
+            course_name=course_name,
+            issue_date_str=issue_date_str,
+            register_id=cert.register_id or cert.certificate_id
+        )
 
-        return Response({"message": "Certificate JPG file not found."}, status=status.HTTP_404_NOT_FOUND)
+        response = HttpResponse(image_bytes, content_type='image/jpeg')
+        response['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+        return response
+
+
+# ==========================================
+# DOWNLOAD CERTIFICATE JPG STREAM
+# ==========================================
+class DownloadCertificateJPG(APIView):
+    """
+    Generates and downloads certificate image dynamically from database data.
+    """
+    def get(self, request):
+        register_id = request.GET.get('register_id') or request.GET.get('certificate_id') or request.GET.get('id')
+        if not register_id:
+            return Response({"message": "register_id parameter is required."}, status=status.HTTP_400_BAD_REQUEST)
+
+        cert = Certificate.objects.filter(models.Q(register_id=register_id) | models.Q(certificate_id=register_id)).first()
+        if not cert:
+            return Response({"message": f"Certificate with ID '{register_id}' not found in database."}, status=status.HTTP_404_NOT_FOUND)
+
+        student_name = cert.student_name or "Student"
+        course_name = cert.get_effective_course_name()
+        issue_date_str = cert.issue_date.strftime("%d/%m/%Y") if cert.issue_date else datetime.now().strftime("%d/%m/%Y")
+
+        image_bytes = Certificate_services.generate_certificate_image_bytes(
+            student_name=student_name,
+            course_name=course_name,
+            issue_date_str=issue_date_str,
+            register_id=cert.register_id or cert.certificate_id
+        )
+
+        filename = f"certificate_{cert.register_id or cert.certificate_id}.jpg"
+        response = HttpResponse(image_bytes, content_type='image/jpeg')
+        response['Content-Disposition'] = f'attachment; filename="{filename}"'
+        return response
+
 
