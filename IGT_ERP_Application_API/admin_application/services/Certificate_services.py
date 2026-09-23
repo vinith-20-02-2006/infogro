@@ -203,8 +203,11 @@ class Certificate_services:
                              assignment_status='Completed', assessment_status='Completed',
                              assignment_score=90.0, assessment_score=95.0):
         """Creates or updates a Certificate record and produces the JPG file."""
-        if str(assignment_status).lower() != 'completed' or str(assessment_status).lower() != 'completed':
-            raise ValueError("Student is NOT eligible for certificate. Both Assignment and Assessment must be Completed.")
+        valid_statuses = ['completed', 'passed']
+        assign_ok = str(assignment_status).lower() in valid_statuses
+        assess_ok = str(assessment_status).lower() in valid_statuses
+        if not (assign_ok and assess_ok):
+            raise ValueError("Student is NOT eligible for certificate. Both Assignment and Assessment must be Completed or Passed.")
 
         if not register_id:
             register_id = f"IGP{Certificate.objects.count() + 1:03d}"

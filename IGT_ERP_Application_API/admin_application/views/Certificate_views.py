@@ -86,7 +86,8 @@ class GenerateCertificate(APIView):
 # ==========================================
 class UpdateCertificate(APIView):
     class InputSerializer(serializers.Serializer):
-        certificate_id = serializers.CharField(required=True)
+        certificate_id = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+        register_id = serializers.CharField(required=False, allow_blank=True, allow_null=True)
         student_name = serializers.CharField(required=False, allow_blank=True, allow_null=True)
         course_name = serializers.CharField(required=False, allow_blank=True, allow_null=True)
         issue_date = serializers.CharField(required=False, allow_blank=True, allow_null=True)
@@ -96,9 +97,13 @@ class UpdateCertificate(APIView):
         serializer.is_valid(raise_exception=True)
         data = serializer.validated_data
 
+        target_id = data.get('certificate_id') or data.get('register_id')
+        if not target_id:
+            return Response({"message": "certificate_id or register_id is required."}, status=status.HTTP_400_BAD_REQUEST)
+
         try:
             result = Certificate_services.update_certificate(
-                certificate_id=data.get('certificate_id'),
+                certificate_id=target_id,
                 student_name=data.get('student_name'),
                 course_name=data.get('course_name'),
                 issue_date=data.get('issue_date')

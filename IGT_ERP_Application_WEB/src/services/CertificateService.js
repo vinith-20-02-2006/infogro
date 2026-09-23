@@ -48,6 +48,22 @@ const CertificateService = {
     return data;
   },
 
+  getAuthHeaders() {
+    const headers = { "Content-Type": "application/json" };
+    try {
+      const tokensStr = localStorage.getItem("authTokens");
+      if (tokensStr) {
+        const tokens = JSON.parse(tokensStr);
+        if (tokens && tokens.access) {
+          headers["Authorization"] = `Bearer ${tokens.access}`;
+        }
+      }
+    } catch (e) {
+      console.error("Error reading auth token:", e);
+    }
+    return headers;
+  },
+
   /**
    * Update an existing certificate and trigger image re-generation
    * @param {Object} editData Certificate update payload
@@ -55,7 +71,7 @@ const CertificateService = {
   async updateCertificate(editData) {
     const res = await fetch(`${API_URL}/certificate/update_certificate`, {
       method: "PUT",
-      headers: { "Content-Type": "application/json" },
+      headers: this.getAuthHeaders(),
       body: JSON.stringify(editData),
     });
 

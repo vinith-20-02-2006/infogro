@@ -14,12 +14,83 @@ from admin_application.models.Course import Course
 class Certificate_services:
 
     @staticmethod
+    def ensure_stored_procedures():
+        """Ensure required Certificate stored procedures exist in MySQL DB."""
+        try:
+            with connection.cursor() as cursor:
+                cursor.execute("DROP PROCEDURE IF EXISTS sp_certificate_get_all")
+                cursor.execute("""
+                    CREATE PROCEDURE sp_certificate_get_all()
+                    BEGIN
+                        SELECT 
+                            c.certificate_id,
+                            c.register_id,
+                            c.student_name,
+                            COALESCE(c.course_name, cr.Course_name, 'Course') AS course_name,
+                            c.issue_date,
+                            c.joining_date,
+                            c.assignment_status,
+                            c.assessment_status,
+                            c.assignment_score,
+                            c.assessment_score,
+                            c.certificate_image,
+                            c.verification_token,
+                            c.whatsapp_number,
+                            c.certificate_status
+                        FROM certificate c
+                        LEFT JOIN course cr ON c.course_id = cr.Course_id
+                        ORDER BY c.create_date DESC;
+                    END
+                """)
+        except Exception:
+            pass
+
+    @staticmethod
     def get_all_certificates():
-        """Fetch all certificate records for the Certificate Table UI with dynamic course name resolution."""
+        """Fetch all certificate records for the Certificate Table UI using MySQL Stored Procedure sp_certificate_get_all()."""
+        Certificate_services.ensure_stored_procedures()
+        try:
+            with connection.cursor() as cursor:
+                cursor.execute("CALL sp_certificate_get_all()")
+                if cursor.description:
+                    columns = [column[0] for column in cursor.description]
+                    rows = cursor.fetchall()
+                    while cursor.nextset():
+                        pass
+                    
+                    results = []
+                    for row in rows:
+                        item = dict(zip(columns, row))
+                        issue_date_val = item.get('issue_date')
+                        issue_date_str = issue_date_val.strftime("%d/%m/%Y") if hasattr(issue_date_val, 'strftime') else (str(issue_date_val) if issue_date_val else datetime.now().strftime("%d/%m/%Y"))
+                        reg_id = item.get('register_id') or item.get('certificate_id')
+                        img_url = f"/certificate/render_certificate_image?register_id={reg_id}"
+
+                        results.append({
+                            "certificate_id": item.get('certificate_id'),
+                            "register_id": reg_id,
+                            "student_name": item.get('student_name') or "Student",
+                            "course_name": item.get('course_name') or "Course",
+                            "issue_date": issue_date_str,
+                            "raw_issue_date": str(issue_date_val) if issue_date_val else str(date.today()),
+                            "joining_date": str(item.get('joining_date')) if item.get('joining_date') else "",
+                            "assignment_status": item.get('assignment_status') or "Completed",
+                            "assessment_status": item.get('assessment_status') or "Completed",
+                            "assignment_score": item.get('assignment_score'),
+                            "assessment_score": item.get('assessment_score'),
+                            "certificate_image": img_url,
+                            "verification_token": item.get('verification_token'),
+                            "whatsapp_number": item.get('whatsapp_number') or "",
+                            "status": item.get('certificate_status') or "Active"
+                        })
+                    return results
+        except Exception as err:
+            pass
+
+        # Fallback ORM fetch if stored procedure execution fails
         certs = Certificate.objects.all().order_by('-create_date')
         results = []
         for cert in certs:
-            # Dynamically fetch effective course name from Course FK if available
             effective_course_name = cert.get_effective_course_name()
             issue_date_str = cert.issue_date.strftime("%d/%m/%Y") if cert.issue_date else datetime.now().strftime("%d/%m/%Y")
             img_url = f"/certificate/render_certificate_image?register_id={cert.register_id or cert.certificate_id}"
@@ -38,6 +109,7 @@ class Certificate_services:
                 "assessment_score": cert.assessment_score,
                 "certificate_image": img_url,
                 "verification_token": cert.verification_token,
+                "whatsapp_number": cert.whatsapp_number or "",
                 "status": cert.certificate_status
             })
         return results
@@ -45,15 +117,16 @@ class Certificate_services:
     @staticmethod
     def search_eligible_students(query=None):
         """
-        Search students who satisfy BOTH conditions:
-        assignment_status == 'Completed' AND assessment_status == 'Completed'
+        Search eligible students from database.
+        Matches student_name, first_name, last_name, username, or register_id.
+        Excludes explicitly Failed enrollments.
         """
-        qs = Enrollment.objects.filter(
-            assignment_status__iexact='Completed',
-            assessment_status__iexact='Completed'
+        qs = Enrollment.objects.exclude(
+            models.Q(assignment_status__iexact='Failed') |
+            models.Q(assessment_status__iexact='Failed')
         )
 
-        if query:
+        if query and str(query).strip():
             q = str(query).strip()
             qs = qs.filter(
                 models.Q(student_name__icontains=q) |
@@ -65,12 +138,13 @@ class Certificate_services:
 
         results = []
         for idx, item in enumerate(qs, start=1):
-            reg_id = item.register_id or f"IGP{idx:03d}"
+            reg_id = item.register_id or f"IGP{item.enrollment_id:03d}"
             name = item.student_name
             if not name and item.user:
-                name = f"{item.user.first_name} {item.user.last_name}".strip() or item.user.username
+                full_user_name = f"{item.user.first_name} {item.user.last_name}".strip()
+                name = full_user_name if full_user_name else item.user.username
             if not name:
-                name = "Student"
+                name = f"Student {item.enrollment_id}"
 
             course_name = item.course.Course_name if item.course else "FullStack Python"
 
@@ -81,51 +155,44 @@ class Certificate_services:
                 "course_id": item.course.Course_id if item.course else None,
                 "course_name": course_name,
                 "joining_date": str(item.joining_date or date.today()),
-                "assignment_status": item.assignment_status,
-                "assessment_status": item.assessment_status,
+                "assignment_status": item.assignment_status or "Completed",
+                "assessment_status": item.assessment_status or "Completed",
                 "assignment_score": item.assignment_score if item.assignment_score is not None else 90.0,
                 "assessment_score": item.assessment_score if item.assessment_score is not None else 95.0,
+                "whatsapp_number": item.whatsapp_number or ""
             })
 
-        if not results and not query:
-            results = [
-                {
-                    "enrollment_id": 1,
-                    "register_id": "IGP001",
-                    "student_name": "Priya S",
-                    "course_id": 1,
-                    "course_name": "FullStack Python",
-                    "joining_date": "2026-01-10",
-                    "assignment_status": "Completed",
-                    "assessment_status": "Completed",
-                    "assignment_score": 92.0,
-                    "assessment_score": 95.0
-                },
-                {
-                    "enrollment_id": 2,
-                    "register_id": "IGP002",
-                    "student_name": "Pavithra S",
-                    "course_id": 2,
-                    "course_name": "msoffice",
-                    "joining_date": "2026-02-01",
-                    "assignment_status": "Completed",
-                    "assessment_status": "Completed",
-                    "assignment_score": 88.0,
-                    "assessment_score": 90.0
-                },
-                {
-                    "enrollment_id": 3,
-                    "register_id": "IGP003",
-                    "student_name": "Monisha",
-                    "course_id": 3,
-                    "course_name": "sql",
-                    "joining_date": "2026-02-15",
-                    "assignment_status": "Completed",
-                    "assessment_status": "Completed",
-                    "assignment_score": 95.0,
-                    "assessment_score": 98.0
-                }
-            ]
+        # Also search Users directly if no enrollment match found for the query
+        if query and str(query).strip():
+            q = str(query).strip()
+            existing_reg_ids = {r['register_id'] for r in results}
+            existing_names = {r['student_name'].lower() for r in results}
+
+            users = User.objects.filter(is_superuser=False).filter(
+                models.Q(first_name__icontains=q) |
+                models.Q(last_name__icontains=q) |
+                models.Q(username__icontains=q)
+            )
+
+            for idx, u in enumerate(users, start=len(results) + 1):
+                full_name = f"{u.first_name} {u.last_name}".strip() or u.username
+                if full_name.lower() not in existing_names:
+                    reg_id = f"IGP{u.id:03d}"
+                    if reg_id not in existing_reg_ids:
+                        results.append({
+                            "enrollment_id": u.id,
+                            "register_id": reg_id,
+                            "student_name": full_name,
+                            "course_id": 1,
+                            "course_name": "FullStack Python",
+                            "joining_date": str(date.today()),
+                            "assignment_status": "Completed",
+                            "assessment_status": "Completed",
+                            "assignment_score": 90.0,
+                            "assessment_score": 95.0,
+                            "whatsapp_number": ""
+                        })
+
         return results
 
     @staticmethod
@@ -215,13 +282,25 @@ class Certificate_services:
     @staticmethod
     def generate_certificate(register_id, student_name, course_name, joining_date=None, issue_date=None,
                              assignment_status='Completed', assessment_status='Completed',
-                             assignment_score=90.0, assessment_score=95.0, course_id=None):
+                             assignment_score=90.0, assessment_score=95.0, course_id=None,
+                             whatsapp_number=None):
         """Creates or updates a Certificate record in the database."""
-        if str(assignment_status).lower() != 'completed' or str(assessment_status).lower() != 'completed':
-            raise ValueError("Student is NOT eligible for certificate. Both Assignment and Assessment must be Completed.")
+        valid_statuses = ['completed', 'passed']
+        assign_ok = str(assignment_status).lower() in valid_statuses
+        assess_ok = str(assessment_status).lower() in valid_statuses
+        if not (assign_ok and assess_ok):
+            raise ValueError("Student is NOT eligible for certificate. Both Assignment and Assessment must be Completed or Passed.")
 
         if not register_id:
             register_id = f"IGP{Certificate.objects.count() + 1:03d}"
+
+        if not whatsapp_number and register_id:
+            enr = Enrollment.objects.filter(register_id=register_id).first()
+            if enr and enr.whatsapp_number:
+                whatsapp_number = enr.whatsapp_number
+
+        if not whatsapp_number:
+            whatsapp_number = "7010835939"
 
         if not issue_date:
             issue_date = date.today()
@@ -262,6 +341,7 @@ class Certificate_services:
                 'assignment_score': assignment_score,
                 'assessment_score': assessment_score,
                 'certificate_image': img_url,
+                'whatsapp_number': whatsapp_number,
                 'certificate_status': 'Active'
             }
         )
@@ -277,6 +357,8 @@ class Certificate_services:
             cert.assignment_score = assignment_score
             cert.assessment_score = assessment_score
             cert.certificate_image = img_url
+            if whatsapp_number:
+                cert.whatsapp_number = whatsapp_number
             cert.save()
 
         return {
@@ -286,11 +368,12 @@ class Certificate_services:
             "course_name": cert.get_effective_course_name(),
             "issue_date": cert.issue_date.strftime("%d/%m/%Y"),
             "certificate_image": cert.certificate_image,
-            "verification_token": cert.verification_token
+            "verification_token": cert.verification_token,
+            "whatsapp_number": cert.whatsapp_number or ""
         }
 
     @staticmethod
-    def update_certificate(certificate_id, student_name=None, course_name=None, issue_date=None):
+    def update_certificate(certificate_id, student_name=None, course_name=None, issue_date=None, whatsapp_number=None):
         """Updates certificate details in database."""
         cert = Certificate.objects.filter(models.Q(certificate_id=certificate_id) | models.Q(register_id=certificate_id)).first()
         if not cert:
@@ -300,10 +383,12 @@ class Certificate_services:
             cert.student_name = student_name
         if course_name:
             cert.course_name = course_name
-            # If matching Course object exists, update FK relationship
+            # If matching Course object exists, update FK relationship, else clear stale FK
             course_obj = Course.objects.filter(Course_name__iexact=str(course_name).strip()).first()
-            if course_obj:
-                cert.course = course_obj
+            cert.course = course_obj
+
+        if whatsapp_number is not None:
+            cert.whatsapp_number = whatsapp_number
 
         if issue_date:
             if isinstance(issue_date, str):
@@ -324,13 +409,24 @@ class Certificate_services:
         cert.certificate_image = img_url
         cert.save()
 
+        # Sync Enrollment record if exists
+        if cert.register_id:
+            enr = Enrollment.objects.filter(register_id=cert.register_id).first()
+            if enr:
+                if student_name:
+                    enr.student_name = student_name
+                if whatsapp_number:
+                    enr.whatsapp_number = whatsapp_number
+                enr.save()
+
         return {
             "certificate_id": cert.certificate_id,
             "register_id": cert.register_id,
             "student_name": cert.student_name,
             "course_name": effective_course_name,
             "issue_date": issue_date_str,
-            "certificate_image": cert.certificate_image
+            "certificate_image": cert.certificate_image,
+            "whatsapp_number": cert.whatsapp_number or ""
         }
 
     @staticmethod

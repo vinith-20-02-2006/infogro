@@ -1,604 +1,559 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, {
+    useState,
+    useEffect,
+    useCallback
+} from "react";
+
 import "./Certificate.css";
+
+import Addcertificate from "./addcertificate/Addcertificate";
+import Updatecertificate from "./updatecertificate/Updatecertificate";
+import Viewcertificate from "./viewcertificate/Viewcertificate";
+
 import CertificateService from "../../services/CertificateService";
 
-const API_URL = CertificateService.getApiUrl();
 
-const Certificate = () => {
-  const [certificates, setCertificates] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState("");
+function Certificate() {
 
-  // Page View Mode: 'list' (default table view) or 'add' (full-page Add Certificate screen)
-  const [viewMode, setViewMode] = useState("list");
+    // View Modes: 'list' (table view) or 'add' (full-page Add Certificate screen)
+    const [viewMode, setViewMode] = useState("list");
 
-  // Modals state for Table Actions (View Image & Edit)
-  const [showViewModal, setShowViewModal] = useState(false);
-  const [showEditModal, setShowEditModal] = useState(false);
+    const [updatePopupVisible, setUpdatePopupVisible] = useState(false);
+    const [viewPopupVisible, setViewPopupVisible] = useState(false);
 
-  // Selected item for View or Edit
-  const [selectedCert, setSelectedCert] = useState(null);
+    const [currentPage, setCurrentPage] = useState(1);
+    const [certificates, setCertificates] = useState([]);
+    const [selectedCert, setSelectedCert] = useState(null);
+    const [loading, setLoading] = useState(false);
 
-  // Search & Eligible Students State
-  const [searchQuery, setSearchQuery] = useState("");
-  const [eligibleStudents, setEligibleStudents] = useState([]);
 
-  // Form Fields for Certificate Generation
-  const [formData, setFormData] = useState({
-    register_id: "",
-    student_name: "",
-    course_name: "",
-    joining_date: "",
-    issue_date: new Date().toISOString().split("T")[0],
-    assignment_status: "Completed",
-    assessment_status: "Completed",
-    assignment_score: 90,
-    assessment_score: 95,
-  });
+    // =====================================================
+    // FETCH CERTIFICATES FROM DATABASE
+    // =====================================================
 
-  // Edit Form Fields
-  const [editData, setEditData] = useState({
-    certificate_id: "",
-    register_id: "",
-    student_name: "",
-    course_name: "",
-    issue_date: "",
-  });
+    const fetchCertificates = useCallback(async () => {
 
-  // 1. Fetch All Certificates for Table Page
-  const fetchCertificates = useCallback(async () => {
-    setLoading(true);
-    try {
-      const data = await CertificateService.listCertificates();
-      setCertificates(data);
-    } catch (err) {
-      console.error("Error fetching certificates:", err);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+        setLoading(true);
 
-  useEffect(() => {
-    fetchCertificates();
-  }, [fetchCertificates]);
+        try {
 
-  // 2. Search Eligible Students
-  const handleSearchStudents = async (query) => {
-    setSearchQuery(query);
-    try {
-      const data = await CertificateService.searchEligibleStudents(query);
-      setEligibleStudents(data);
-    } catch (err) {
-      console.error("Search error:", err);
-    }
-  };
+            const data = await CertificateService.listCertificates();
 
-  // Open Full-Page Add Certificate Screen
-  const openAddPage = () => {
-    setViewMode("add");
-    setSearchQuery("");
-    setFormData({
-      register_id: "",
-      student_name: "",
-      course_name: "",
-      joining_date: "",
-      issue_date: new Date().toISOString().split("T")[0],
-      assignment_status: "Completed",
-      assessment_status: "Completed",
-      assignment_score: 90,
-      assessment_score: 95,
-    });
-    handleSearchStudents("");
-  };
+            console.log("Certificates fetched:", data);
 
-  // 3. Select Eligible Student from Search Results -> Auto Populate Form
-  const handleSelectStudent = (student) => {
-    setFormData({
-      register_id: student.register_id || "",
-      student_name: student.student_name || "",
-      course_name: student.course_name || "",
-      joining_date: student.joining_date || "",
-      issue_date: new Date().toISOString().split("T")[0],
-      assignment_status: student.assignment_status || "Completed",
-      assessment_status: student.assessment_status || "Completed",
-      assignment_score: student.assignment_score || 90,
-      assessment_score: student.assessment_score || 95,
-    });
-  };
+            if (Array.isArray(data)) {
 
-  // 4. Submit / Generate Certificate
-  const handleGenerateCertificate = async (e) => {
-    e.preventDefault();
-    if (!formData.student_name || !formData.course_name) {
-      alert("Please search and select an eligible student to generate a certificate.");
-      return;
-    }
+                setCertificates(data);
 
-    setLoading(true);
-    try {
-      await CertificateService.generateCertificate(formData);
-      setMessage("Certificate generated successfully!");
-      setViewMode("list");
-      fetchCertificates();
-    } catch (err) {
-      console.error("Generation error:", err);
-      alert(err.message || "Error generating certificate.");
-    } finally {
-      setLoading(false);
-    }
-  };
+            } else {
 
-  // 5. Action: View Certificate Image Modal
-  const handleViewCert = (cert) => {
-    setSelectedCert(cert);
-    setShowViewModal(true);
-  };
+                setCertificates([]);
 
-  // 6. Action: Download Certificate JPG
-  const handleDownloadCert = (registerId) => {
-    const downloadUrl = CertificateService.getDownloadUrl(registerId);
-    window.open(downloadUrl, "_blank");
-  };
+            }
 
-  // 7. Action: WhatsApp Share
-  const handleWhatsAppShare = (cert) => {
-    const certId = cert.register_id || cert.certificate_id;
-    const recipient = cert.student_name || "Student";
-    const course = cert.course_name || "Course";
+        } catch (err) {
 
-    const text = `Congratulations ${recipient}! You have successfully completed the ${course} course at IGT ERP Academy.\n\nStudent ID: ${certId}`;
-    const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(text)}`;
-    window.open(whatsappUrl, "_blank");
-  };
+            console.error("Failed to fetch certificates:", err);
 
-  // 8. Action: Open Edit Modal
-  const handleOpenEdit = (cert) => {
-    setSelectedCert(cert);
-    setEditData({
-      certificate_id: cert.certificate_id,
-      register_id: cert.register_id,
-      student_name: cert.student_name,
-      course_name: cert.course_name,
-      issue_date: cert.raw_issue_date || new Date().toISOString().split("T")[0],
-    });
-    setShowEditModal(true);
-  };
+            setCertificates([]);
 
-  // 9. Action: Save Edit Certificate Changes
-  const handleSaveEdit = async (e) => {
-    e.preventDefault();
-    setLoading(true);
-    try {
-      await CertificateService.updateCertificate(editData);
-      setShowEditModal(false);
-      fetchCertificates();
-    } catch (err) {
-      console.error("Update error:", err);
-      alert(err.message || "Error updating certificate.");
-    } finally {
-      setLoading(false);
-    }
-  };
+        } finally {
 
-  return (
-    <div className="certificate-page-container container-xxl">
-      {message && (
-        <div className="alert alert-success alert-dismissible fade show" role="alert">
-          {message}
-          <button type="button" className="btn-close" onClick={() => setMessage("")}></button>
-        </div>
-      )}
+            setLoading(false);
 
-      {/* ========================================================================= */}
-      {/* VIEW MODE 1: CERTIFICATE TABLE LIST PAGE (DEFAULT)                        */}
-      {/* ========================================================================= */}
-      {viewMode === "list" && (
-        <div className="certificate-card-main">
-          {/* Header matching reference UI screenshot */}
-          <div className="cert-header-bar">
-            <div className="cert-header-left">
-              <div className="cert-header-icon-bg">
-                <i className="bx bx-user-check"></i>
-              </div>
-              <h4 className="cert-header-title">VIEW CERTIFICATE</h4>
-            </div>
+        }
 
-            <button className="btn-add-cert" onClick={openAddPage}>
-              <i className="bx bx-user-plus"></i> + Add Certificate
-            </button>
-          </div>
+    }, []);
 
-          {/* Certificate Table */}
-          <div className="cert-table-wrapper">
-            <table className="cert-custom-table">
-              <thead>
-                <tr>
-                  <th>STUDENT ID</th>
-                  <th>STUDENT NAME</th>
-                  <th>COURSE</th>
-                  <th>ISSUE DATE</th>
-                  <th>CERTIFICATE</th>
-                  <th>DOWNLOAD</th>
-                  <th>SHARE</th>
-                  <th>EDIT</th>
-                </tr>
-              </thead>
-              <tbody>
-                {certificates.length > 0 ? (
-                  certificates.map((row, index) => (
-                    <tr key={row.certificate_id || index}>
-                      <td className="font-weight-bold" style={{ color: "#566a7f" }}>
-                        {row.register_id || row.certificate_id}
-                      </td>
-                      <td style={{ color: "#435971", fontWeight: "500" }}>{row.student_name}</td>
-                      <td style={{ color: "#697a8d" }}>{row.course_name}</td>
-                      <td style={{ color: "#697a8d" }}>{row.issue_date}</td>
 
-                      {/* View Action (Eye icon) */}
-                      <td>
+    // =====================================================
+    // INITIAL LOAD
+    // =====================================================
+
+    useEffect(() => {
+
+        fetchCertificates();
+
+    }, [fetchCertificates]);
+
+
+    // =====================================================
+    // TOGGLE POPUPS & VIEWS
+    // =====================================================
+
+    const toggleUpdatePopup = () => {
+
+        setUpdatePopupVisible(!updatePopupVisible);
+
+    };
+
+    const toggleViewPopup = () => {
+
+        setViewPopupVisible(!viewPopupVisible);
+
+    };
+
+
+    // =====================================================
+    // HANDLERS
+    // =====================================================
+
+    const handleCertificateCreated = async () => {
+
+        await fetchCertificates();
+
+        setViewMode("list");
+
+        setCurrentPage(1);
+
+    };
+
+    const handleCertificateUpdated = async () => {
+
+        await fetchCertificates();
+
+        setUpdatePopupVisible(false);
+
+    };
+
+    const handleOpenEdit = (cert) => {
+
+        setSelectedCert(cert);
+
+        toggleUpdatePopup();
+
+    };
+
+    const handleOpenView = (cert) => {
+
+        setSelectedCert(cert);
+
+        toggleViewPopup();
+
+    };
+
+    const handleWhatsAppShare = async (cert) => {
+        const rawPhone = cert.whatsapp_number || cert.phone_number;
+        if (!rawPhone || !String(rawPhone).trim()) {
+            alert("Student WhatsApp number is not available.");
+            return;
+        }
+        let cleanPhone = String(rawPhone).replace(/[^0-9]/g, '');
+        if (!cleanPhone) {
+            alert("Student WhatsApp number is not available.");
+            return;
+        }
+        if (cleanPhone.length === 10) {
+            cleanPhone = "91" + cleanPhone;
+        }
+
+        const certId = cert.register_id || cert.certificate_id;
+        const recipient = cert.student_name || "Student";
+        const course = cert.course_name || "Course";
+        const downloadUrl = CertificateService.getDownloadUrl(certId);
+
+        try {
+            const response = await fetch(downloadUrl);
+            const blob = await response.blob();
+            const file = new File([blob], `Certificate_${certId}.jpg`, { type: "image/jpeg" });
+
+            // 1. Native Web Share API (Mobile / supported browsers)
+            if (navigator.canShare && navigator.canShare({ files: [file] })) {
+                await navigator.share({
+                    title: `Certificate of Completion - ${recipient}`,
+                    text: `Congratulations ${recipient}! Here is your Certificate of Completion for ${course}.`,
+                    files: [file]
+                });
+                return;
+            }
+
+            // 2. Clipboard copy for desktop Ctrl+V paste
+            if (navigator.clipboard && window.ClipboardItem) {
+                try {
+                    await navigator.clipboard.write([
+                        new ClipboardItem({ "image/jpeg": blob })
+                    ]);
+                } catch (clipErr) {
+                    console.log("Clipboard write image failed:", clipErr);
+                }
+            }
+        } catch (err) {
+            console.log("Fetch certificate image blob failed:", err);
+        }
+
+        // 3. Auto-download JPG file for manual attachment & open WhatsApp
+        const a = document.createElement("a");
+        a.href = downloadUrl;
+        a.download = `Certificate_${certId}.jpg`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+
+        const message = `🎓 *CERTIFICATE OF COMPLETION (JPG)*\n\nStudent: *${recipient}*\nCourse: *${course}*\nStudent ID: *${certId}*\n\nDirect Certificate Image (JPG):\n${downloadUrl}\n\n_(The Certificate JPG file has been downloaded to your computer & copied to clipboard. Press Ctrl+V in WhatsApp to paste the image directly!)_`;
+        window.open(`https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`, "_blank");
+    };
+
+    const handleDownloadCertificate = (cert) => {
+        const certId = cert.register_id || cert.certificate_id;
+        if (!certId) {
+            alert("Certificate is not available for download.");
+            return;
+        }
+        const downloadUrl = CertificateService.getDownloadUrl(certId);
+        if (!downloadUrl) {
+            alert("Certificate is not available for download.");
+            return;
+        }
+
+        const studentName = cert.student_name ? cert.student_name.replace(/\s+/g, "_") : "Student";
+        const fileName = `${studentName}_Certificate.jpg`;
+
+        const a = document.createElement("a");
+        a.href = downloadUrl;
+        a.download = fileName;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+    };
+
+
+    // =====================================================
+    // PAGINATION
+    // =====================================================
+
+    const itemsPerPage = 4;
+
+    const indexOfLastItem = currentPage * itemsPerPage;
+
+    const indexOfFirstItem = indexOfLastItem - itemsPerPage;
+
+    const currentCertificates = certificates.slice(
+        indexOfFirstItem,
+        indexOfLastItem
+    );
+
+
+    const nextPage = () => {
+
+        if (indexOfLastItem < certificates.length) {
+
+            setCurrentPage(currentPage + 1);
+
+        }
+
+    };
+
+    const prevPage = () => {
+
+        if (currentPage > 1) {
+
+            setCurrentPage(currentPage - 1);
+
+        }
+
+    };
+
+
+    return (
+
+        <div className="certificate-page container-xxl flex-grow-1 container-p-y">
+
+
+            {/* ========================================================================= */}
+            {/* VIEW MODE 1: FULL-PAGE ADD CERTIFICATE SCREEN                             */}
+            {/* ========================================================================= */}
+            {viewMode === "add" && (
+
+                <Addcertificate
+                    onBack={() => setViewMode("list")}
+                    onSuccess={handleCertificateCreated}
+                />
+
+            )}
+
+
+            {/* ========================================================================= */}
+            {/* VIEW MODE 2: CERTIFICATE TABLE LIST PAGE (DEFAULT)                        */}
+            {/* ========================================================================= */}
+            {viewMode === "list" && (
+
+                <>
+
+                    {/* PAGE HEADER */}
+                    <div className="page-header">
+
+                        <div>
+
+                            <h3 className="page-title">
+                                Certificate Management
+                            </h3>
+
+                            <p className="page-subtitle">
+                                Manage all issued student certificates
+                            </p>
+
+                        </div>
+
+
                         <button
-                          className="icon-btn-action icon-btn-view"
-                          title="View Certificate JPG"
-                          onClick={() => handleViewCert(row)}
+                            className="btn btn-primary add-btn"
+                            onClick={() => setViewMode("add")}
                         >
-                          <i className="bx bx-show"></i>
+
+                            <i className="bx bx-plus me-2"></i>
+
+                            Add Certificate
+
                         </button>
-                      </td>
 
-                      {/* Download Action (Download icon) */}
-                      <td>
-                        <button
-                          className="icon-btn-action icon-btn-download"
-                          title="Download Certificate JPG"
-                          onClick={() => handleDownloadCert(row.register_id)}
-                        >
-                          <i className="bx bx-download"></i>
-                        </button>
-                      </td>
-
-                      {/* Share Action (WhatsApp icon) */}
-                      <td>
-                        <button
-                          className="icon-btn-action icon-btn-share"
-                          title="Share on WhatsApp"
-                          onClick={() => handleWhatsAppShare(row)}
-                        >
-                          <i className="bx bxl-whatsapp"></i>
-                        </button>
-                      </td>
-
-                      {/* Edit Action (Edit icon) */}
-                      <td>
-                        <button
-                          className="icon-btn-action icon-btn-edit"
-                          title="Edit Certificate"
-                          onClick={() => handleOpenEdit(row)}
-                        >
-                          <i className="bx bx-edit-alt"></i>
-                        </button>
-                      </td>
-                    </tr>
-                  ))
-                ) : (
-                  <tr>
-                    <td colSpan="8" className="text-center py-4 text-muted">
-                      {loading ? "Loading certificates..." : "No certificates generated yet. Click '+ Add Certificate' to create one."}
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
-
-      {/* ========================================================================= */}
-      {/* VIEW MODE 2: FULL-PAGE ADD CERTIFICATE SCREEN                             */}
-      {/* ========================================================================= */}
-      {viewMode === "add" && (
-        <div className="certificate-card-main">
-          {/* Full Page Header */}
-          <div className="cert-header-bar border-bottom pb-3 mb-4">
-            <div className="cert-header-left">
-              <div className="cert-header-icon-bg">
-                <i className="bx bx-user-plus"></i>
-              </div>
-              <h4 className="cert-header-title">ADD CERTIFICATE</h4>
-            </div>
-
-            <button
-              type="button"
-              className="btn btn-outline-secondary d-flex align-items-center gap-2"
-              onClick={() => setViewMode("list")}
-            >
-              <i className="bx bx-arrow-back"></i> Back to Certificate List
-            </button>
-          </div>
-
-          <div className="cert-fullpage-body">
-            {/* 1. Search Eligible Student Bar */}
-            <div className="card p-3 mb-4 border-0 bg-light">
-              <label className="form-label font-weight-bold" style={{ color: "#0F4C81", fontSize: "16px" }}>
-                <i className="bx bx-search-alt me-1"></i> Search Eligible Student (Name or Register ID):
-              </label>
-              <input
-                type="text"
-                className="form-control form-control-lg bg-white"
-                placeholder="Type Student Name or Register ID (e.g. Priya or IGP001)..."
-                value={searchQuery}
-                onChange={(e) => handleSearchStudents(e.target.value)}
-              />
-
-              {/* Autocomplete Results List */}
-              {eligibleStudents.length > 0 && (
-                <div className="search-results-list shadow-sm mt-2">
-                  {eligibleStudents.map((st) => (
-                    <div
-                      key={st.register_id || st.enrollment_id}
-                      className="search-result-item"
-                      onClick={() => handleSelectStudent(st)}
-                    >
-                      <div>
-                        <strong>{st.student_name}</strong> ({st.register_id}) -{" "}
-                        <span className="text-muted">{st.course_name}</span>
-                      </div>
-                      <span className="badge-eligible">
-                        <i className="bx bx-check-circle me-1"></i> Assignment & Assessment Completed
-                      </span>
                     </div>
-                  ))}
-                </div>
-              )}
-            </div>
 
-            {/* 2. Full Page Certificate Generation Form */}
-            <form onSubmit={handleGenerateCertificate}>
-              <h5 className="mb-3 font-weight-bold" style={{ color: "#0F4C81" }}>
-                Student Certificate Details
-              </h5>
 
-              <div className="row g-3">
-                <div className="col-md-6">
-                  <label className="form-label font-weight-bold">Register ID / Student ID:</label>
-                  <input
-                    type="text"
-                    className="form-control"
-                    value={formData.register_id}
-                    readOnly
-                    placeholder="Select an eligible student above"
-                  />
-                </div>
+                    {/* CERTIFICATE TABLE CARD */}
+                    <div className="card certificate-card">
 
-                <div className="col-md-6">
-                  <label className="form-label font-weight-bold">Student Name:</label>
-                  <input
-                    type="text"
-                    className="form-control"
-                    value={formData.student_name}
-                    readOnly
-                    placeholder="Select an eligible student above"
-                  />
-                </div>
+                        <div className="table-responsive">
 
-                <div className="col-md-6">
-                  <label className="form-label font-weight-bold">Course:</label>
-                  <input
-                    type="text"
-                    className="form-control"
-                    value={formData.course_name}
-                    readOnly
-                    placeholder="Select an eligible student above"
-                  />
-                </div>
+                            <table className="table modern-table">
 
-                <div className="col-md-6">
-                  <label className="form-label font-weight-bold">Joining / Starting Date:</label>
-                  <input
-                    type="text"
-                    className="form-control"
-                    value={formData.joining_date}
-                    readOnly
-                    placeholder="Auto-populated"
-                  />
-                </div>
+                                <thead>
 
-                <div className="col-md-6">
-                  <label className="form-label font-weight-bold">Assignment Status:</label>
-                  <input
-                    type="text"
-                    className="form-control text-success font-weight-bold"
-                    value={formData.assignment_status}
-                    readOnly
-                  />
-                </div>
+                                    <tr>
 
-                <div className="col-md-6">
-                  <label className="form-label font-weight-bold">Assessment Status:</label>
-                  <input
-                    type="text"
-                    className="form-control text-success font-weight-bold"
-                    value={formData.assessment_status}
-                    readOnly
-                  />
-                </div>
+                                        <th>ID</th>
 
-                <div className="col-md-6">
-                  <label className="form-label font-weight-bold">Assignment Score:</label>
-                  <input
-                    type="text"
-                    className="form-control"
-                    value={formData.assignment_score}
-                    readOnly
-                  />
-                </div>
+                                        <th>
+                                            Student Name
+                                        </th>
 
-                <div className="col-md-6">
-                  <label className="form-label font-weight-bold">Assessment Score:</label>
-                  <input
-                    type="text"
-                    className="form-control"
-                    value={formData.assessment_score}
-                    readOnly
-                  />
-                </div>
+                                        <th>
+                                            Course
+                                        </th>
 
-                <div className="col-md-12">
-                  <label className="form-label font-weight-bold" style={{ color: "#0F4C81", fontSize: "15px" }}>
-                    Issue Date:
-                  </label>
-                  <input
-                    type="date"
-                    className="form-control form-control-lg"
-                    value={formData.issue_date}
-                    onChange={(e) => setFormData({ ...formData, issue_date: e.target.value })}
-                    required
-                  />
-                </div>
-              </div>
+                                        <th>
+                                            Issue Date
+                                        </th>
 
-              {/* Page Footer Actions */}
-              <div className="mt-4 pt-3 border-top text-end">
-                <button
-                  type="button"
-                  className="btn btn-outline-secondary btn-lg me-3"
-                  onClick={() => setViewMode("list")}
-                  disabled={loading}
-                >
-                  Cancel
-                </button>
+                                        <th>
+                                            Download
+                                        </th>
 
-                <button
-                  type="submit"
-                  className="btn btn-primary btn-lg"
-                  style={{ backgroundColor: "#0F4C81", borderColor: "#0F4C81" }}
-                  disabled={loading}
-                >
-                  {loading ? (
-                    <>
-                      <span className="spinner-border spinner-border-sm me-2" role="status"></span>
-                      Generating JPG Certificate...
-                    </>
-                  ) : (
-                    <>
-                      <i className="bx bx-award me-1"></i> Generate Certificate
-                    </>
-                  )}
-                </button>
-              </div>
-            </form>
-          </div>
+                                        <th width="220">
+                                            Action
+                                        </th>
+
+                                    </tr>
+
+                                </thead>
+
+
+                                <tbody>
+
+                                    {currentCertificates.length > 0 ? (
+
+                                        currentCertificates.map(
+                                            (cert, index) => (
+
+                                                <tr
+                                                    key={
+                                                        cert.certificate_id ||
+                                                        cert.register_id ||
+                                                        index
+                                                    }
+                                                >
+
+                                                    <td>
+                                                        #{cert.register_id || cert.certificate_id}
+                                                    </td>
+
+
+                                                    <td>
+
+                                                        <strong>
+                                                            {cert.student_name}
+                                                        </strong>
+
+                                                    </td>
+
+
+                                                    <td>
+
+                                                        {cert.course_name}
+
+                                                    </td>
+
+
+                                                    <td>
+
+                                                        {cert.issue_date}
+
+                                                    </td>
+
+
+                                                    <td>
+
+                                                        <button
+                                                            className="btn btn-action btn-download"
+                                                            title="Download Certificate JPG"
+                                                            onClick={() => handleDownloadCertificate(cert)}
+                                                        >
+                                                            <i className="bx bx-download"></i>
+                                                        </button>
+
+                                                    </td>
+
+
+                                                    <td>
+
+                                                        <div className="action-buttons">
+
+                                                            <button
+                                                                className="btn btn-action btn-view"
+                                                                title="View Certificate"
+                                                                onClick={() =>
+                                                                    handleOpenView(cert)
+                                                                }
+                                                            >
+                                                                <i className="bx bx-show me-1"></i>
+                                                                View
+                                                            </button>
+
+
+                                                            <button
+                                                                className="btn btn-action btn-edit"
+                                                                title="Edit Certificate"
+                                                                onClick={() =>
+                                                                    handleOpenEdit(cert)
+                                                                }
+                                                            >
+                                                                <i className="bx bx-edit-alt me-1"></i>
+                                                                Edit
+                                                            </button>
+
+                                                            <button
+                                                                className="btn btn-action btn-whatsapp"
+                                                                style={{ color: "#25D366", borderColor: "#25D366" }}
+                                                                title="Share on WhatsApp"
+                                                                onClick={() =>
+                                                                    handleWhatsAppShare(cert)
+                                                                }
+                                                            >
+                                                                <i className="bx bxl-whatsapp me-1"></i>
+                                                                WhatsApp
+                                                            </button>
+
+                                                        </div>
+
+                                                    </td>
+
+                                                </tr>
+
+                                            )
+                                        )
+
+                                    ) : (
+
+                                        <tr>
+
+                                            <td
+                                                colSpan="6"
+                                                className="text-center py-4"
+                                            >
+
+                                                {loading
+                                                    ? "Loading certificates..."
+                                                    : "No certificates found."}
+
+                                            </td>
+
+                                        </tr>
+
+                                    )}
+
+                                </tbody>
+
+                            </table>
+
+                        </div>
+
+
+                        {/* PAGINATION */}
+                        <div className="card-footer bg-white border-0">
+
+                            <div className="d-flex justify-content-end">
+
+                                <button
+                                    className="btn btn-light me-2"
+                                    onClick={prevPage}
+                                    disabled={currentPage === 1}
+                                >
+
+                                    <i className="bx bx-chevron-left"></i>
+
+                                    Previous
+
+                                </button>
+
+
+                                <button
+                                    className="btn btn-primary"
+                                    style={{ background: "#4F46E5", border: "none" }}
+                                    onClick={nextPage}
+                                    disabled={
+                                        indexOfLastItem >= certificates.length
+                                    }
+                                >
+
+                                    Next
+
+                                    <i className="bx bx-chevron-right ms-1"></i>
+
+                                </button>
+
+                            </div>
+
+                        </div>
+
+                    </div>
+
+                </>
+
+            )}
+
+
+            {/* ================================================= */}
+            {/* UPDATE POPUP */}
+            {/* ================================================= */}
+
+            {updatePopupVisible && (
+
+                <Updatecertificate
+                    toggle={toggleUpdatePopup}
+                    data={selectedCert}
+                    onSuccess={handleCertificateUpdated}
+                />
+
+            )}
+
+
+            {/* ================================================= */}
+            {/* VIEW POPUP */}
+            {/* ================================================= */}
+
+            {viewPopupVisible && (
+
+                <Viewcertificate
+                    toggle={toggleViewPopup}
+                    cert={selectedCert}
+                />
+
+            )}
+
         </div>
-      )}
 
-      {/* ========================================================================= */}
-      {/* VIEW CERTIFICATE IMAGE MODAL                                              */}
-      {/* ========================================================================= */}
-      {showViewModal && selectedCert && (
-        <div className="cert-modal-overlay">
-          <div className="cert-modal-box" style={{ maxWidth: "800px" }}>
-            <div className="cert-modal-header">
-              <h5 className="cert-modal-title">
-                Certificate Preview - {selectedCert.register_id || selectedCert.certificate_id} ({selectedCert.student_name})
-              </h5>
-              <button className="cert-modal-close" onClick={() => setShowViewModal(false)}>
-                &times;
-              </button>
-            </div>
-            <div className="cert-modal-body text-center">
-              <img
-                src={`${API_URL}${selectedCert.certificate_image}${selectedCert.certificate_image?.includes('?') ? '&' : '?'}t=${Date.now()}`}
-                alt="Certificate JPG"
-                className="cert-preview-img mb-3"
-              />
-              <div className="d-flex justify-content-center gap-3">
-                <button
-                  className="btn btn-success"
-                  onClick={() => handleDownloadCert(selectedCert.register_id)}
-                >
-                  <i className="bx bx-download me-1"></i> Download JPG
-                </button>
-                <button
-                  className="btn btn-whatsapp"
-                  onClick={() => handleWhatsAppShare(selectedCert)}
-                >
-                  <i className="bx bxl-whatsapp me-1"></i> Share WhatsApp
-                </button>
-                <button className="btn btn-secondary" onClick={() => setShowViewModal(false)}>
-                  Close
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+    );
 
-      {/* ========================================================================= */}
-      {/* EDIT CERTIFICATE MODAL                                                    */}
-      {/* ========================================================================= */}
-      {showEditModal && (
-        <div className="cert-modal-overlay">
-          <div className="cert-modal-box">
-            <div className="cert-modal-header">
-              <h5 className="cert-modal-title">Edit Certificate Information</h5>
-              <button className="cert-modal-close" onClick={() => setShowEditModal(false)}>
-                &times;
-              </button>
-            </div>
-            <div className="cert-modal-body">
-              <form onSubmit={handleSaveEdit}>
-                <div className="mb-3">
-                  <label className="form-label">Register ID / Student ID:</label>
-                  <input type="text" className="form-control" value={editData.register_id} readOnly />
-                </div>
+}
 
-                <div className="mb-3">
-                  <label className="form-label">Student Name:</label>
-                  <input
-                    type="text"
-                    className="form-control"
-                    value={editData.student_name}
-                    onChange={(e) => setEditData({ ...editData, student_name: e.target.value })}
-                    required
-                  />
-                </div>
-
-                <div className="mb-3">
-                  <label className="form-label">Course Name:</label>
-                  <input
-                    type="text"
-                    className="form-control"
-                    value={editData.course_name}
-                    onChange={(e) => setEditData({ ...editData, course_name: e.target.value })}
-                    required
-                  />
-                </div>
-
-                <div className="mb-3">
-                  <label className="form-label">Issue Date:</label>
-                  <input
-                    type="date"
-                    className="form-control"
-                    value={editData.issue_date}
-                    onChange={(e) => setEditData({ ...editData, issue_date: e.target.value })}
-                    required
-                  />
-                </div>
-
-                <div className="text-end mt-4">
-                  <button type="button" className="btn btn-secondary me-2" onClick={() => setShowEditModal(false)}>
-                    Cancel
-                  </button>
-                  <button type="submit" className="btn btn-primary" style={{ backgroundColor: "#0F4C81" }} disabled={loading}>
-                    {loading ? "Saving..." : "Save & Regenerate Certificate"}
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-};
 
 export default Certificate;

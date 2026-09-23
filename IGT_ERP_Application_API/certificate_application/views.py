@@ -55,6 +55,7 @@ class GenerateCertificate(APIView):
         assignment_score = serializers.FloatField(required=False, default=90.0)
         assessment_score = serializers.FloatField(required=False, default=95.0)
         course_id = serializers.IntegerField(required=False, allow_null=True)
+        whatsapp_number = serializers.CharField(required=False, allow_blank=True, allow_null=True)
 
     def post(self, request):
         serializer = self.InputSerializer(data=request.data)
@@ -72,7 +73,8 @@ class GenerateCertificate(APIView):
                 assessment_status=data.get('assessment_status', 'Completed'),
                 assignment_score=data.get('assignment_score', 90.0),
                 assessment_score=data.get('assessment_score', 95.0),
-                course_id=data.get('course_id')
+                course_id=data.get('course_id'),
+                whatsapp_number=data.get('whatsapp_number')
             )
             return Response({
                 "message": "Certificate issued successfully.",
@@ -90,22 +92,29 @@ class GenerateCertificate(APIView):
 # ==========================================
 class UpdateCertificate(APIView):
     class InputSerializer(serializers.Serializer):
-        certificate_id = serializers.CharField(required=True)
+        certificate_id = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+        register_id = serializers.CharField(required=False, allow_blank=True, allow_null=True)
         student_name = serializers.CharField(required=False, allow_blank=True, allow_null=True)
         course_name = serializers.CharField(required=False, allow_blank=True, allow_null=True)
         issue_date = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+        whatsapp_number = serializers.CharField(required=False, allow_blank=True, allow_null=True)
 
     def put(self, request):
         serializer = self.InputSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         data = serializer.validated_data
 
+        target_id = data.get('certificate_id') or data.get('register_id')
+        if not target_id:
+            return Response({"message": "certificate_id or register_id is required."}, status=status.HTTP_400_BAD_REQUEST)
+
         try:
             result = Certificate_services.update_certificate(
-                certificate_id=data.get('certificate_id'),
+                certificate_id=target_id,
                 student_name=data.get('student_name'),
                 course_name=data.get('course_name'),
-                issue_date=data.get('issue_date')
+                issue_date=data.get('issue_date'),
+                whatsapp_number=data.get('whatsapp_number')
             )
             return Response({
                 "message": "Certificate updated successfully.",

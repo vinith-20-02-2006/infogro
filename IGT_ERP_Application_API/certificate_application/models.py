@@ -18,6 +18,7 @@ class Certificate(models.Model):
     assignment_score = models.FloatField(null=True, blank=True)
     assessment_score = models.FloatField(null=True, blank=True)
     certificate_image = models.CharField(max_length=500, null=True, blank=True)
+    whatsapp_number = models.CharField(max_length=20, null=True, blank=True)
     certificate_status = models.CharField(max_length=30, default='Active')
     create_date = models.DateTimeField(auto_now_add=True)
     update_date = models.DateTimeField(auto_now=True)
@@ -26,10 +27,12 @@ class Certificate(models.Model):
         db_table = 'certificate'
 
     def get_effective_course_name(self):
-        """Dynamically fetch the latest course name from the related Course model if available."""
+        """Dynamically fetch the course name for this certificate."""
+        if self.course_name and self.course_name.strip():
+            return self.course_name
         if self.course and self.course.Course_name:
             return self.course.Course_name
-        return self.course_name or "Course"
+        return "Course"
 
     def __str__(self):
         return f"{self.certificate_id} - {self.student_name} ({self.get_effective_course_name()})"
