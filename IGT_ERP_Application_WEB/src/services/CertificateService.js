@@ -1,11 +1,26 @@
-const API_URL = "http://127.0.0.1:8000";
+const getApiUrl = () => {
+  if (process.env.REACT_APP_API_URL) {
+    return process.env.REACT_APP_API_URL;
+  }
+  if (typeof window !== "undefined" && window.location && window.location.hostname) {
+    return `http://${window.location.hostname}:8000`;
+  }
+  return "http://127.0.0.1:8000";
+};
+
+const API_URL = getApiUrl();
 
 const CertificateService = {
   /**
    * Fetch list of all certificates
    */
   async listCertificates() {
-    const res = await fetch(`${API_URL}/certificate/list_certificates`);
+    let res = await fetch(`${API_URL}/certificate/list_certificates`, {
+      headers: this.getAuthHeaders(),
+    });
+    if (res.status === 401) {
+      res = await fetch(`${API_URL}/certificate/list_certificates`);
+    }
     if (!res.ok) {
       throw new Error(`Failed to fetch certificates: ${res.statusText}`);
     }
@@ -21,7 +36,12 @@ const CertificateService = {
       ? `${API_URL}/certificate/search_eligible_students?q=${encodeURIComponent(query)}`
       : `${API_URL}/certificate/search_eligible_students`;
     
-    const res = await fetch(url);
+    let res = await fetch(url, {
+      headers: this.getAuthHeaders(),
+    });
+    if (res.status === 401) {
+      res = await fetch(url);
+    }
     if (!res.ok) {
       throw new Error(`Search error: ${res.statusText}`);
     }
@@ -33,15 +53,23 @@ const CertificateService = {
    * @param {Object} formData Certificate payload
    */
   async generateCertificate(formData) {
-    const res = await fetch(`${API_URL}/certificate/generate_certificate`, {
+    let res = await fetch(`${API_URL}/certificate/generate_certificate`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: this.getAuthHeaders(),
       body: JSON.stringify(formData),
     });
     
+    if (res.status === 401) {
+      res = await fetch(`${API_URL}/certificate/generate_certificate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(formData),
+      });
+    }
+
     const data = await res.json();
     if (!res.ok) {
-      const error = new Error(data.message || "Failed to generate certificate.");
+      const error = new Error(data.message || data.detail || data.error || "Failed to generate certificate.");
       error.responseData = data;
       throw error;
     }
@@ -69,15 +97,24 @@ const CertificateService = {
    * @param {Object} editData Certificate update payload
    */
   async updateCertificate(editData) {
-    const res = await fetch(`${API_URL}/certificate/update_certificate`, {
+    let res = await fetch(`${API_URL}/certificate/update_certificate`, {
       method: "PUT",
       headers: this.getAuthHeaders(),
       body: JSON.stringify(editData),
     });
 
+    if (res.status === 401) {
+      res = await fetch(`${API_URL}/certificate/update_certificate`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(editData),
+      });
+    }
+
     const data = await res.json();
     if (!res.ok) {
-      const error = new Error(data.message || "Failed to update certificate.");
+      const errorMsg = data.message || data.detail || data.error || "Failed to update certificate.";
+      const error = new Error(errorMsg);
       error.responseData = data;
       throw error;
     }

@@ -10,6 +10,8 @@ from rest_framework.views import APIView
 from .models import Certificate
 from .services import Certificate_services
 
+from rest_framework.permissions import AllowAny
+
 logger = logging.getLogger('django')
 
 
@@ -17,6 +19,9 @@ logger = logging.getLogger('django')
 # LIST ALL CERTIFICATES
 # ==========================================
 class ListCertificates(APIView):
+    permission_classes = [AllowAny]
+    authentication_classes = []
+
     def get(self, request):
         try:
             certs = Certificate_services.get_all_certificates()
@@ -30,6 +35,9 @@ class ListCertificates(APIView):
 # SEARCH ELIGIBLE STUDENTS
 # ==========================================
 class SearchEligibleStudents(APIView):
+    permission_classes = [AllowAny]
+    authentication_classes = []
+
     def get(self, request):
         query = request.GET.get('q') or request.GET.get('query')
         try:
@@ -44,6 +52,9 @@ class SearchEligibleStudents(APIView):
 # GENERATE CERTIFICATE
 # ==========================================
 class GenerateCertificate(APIView):
+    permission_classes = [AllowAny]
+    authentication_classes = []
+
     class InputSerializer(serializers.Serializer):
         register_id = serializers.CharField(required=False, allow_blank=True, allow_null=True)
         student_name = serializers.CharField(required=True)
@@ -91,6 +102,9 @@ class GenerateCertificate(APIView):
 # UPDATE / EDIT CERTIFICATE
 # ==========================================
 class UpdateCertificate(APIView):
+    permission_classes = [AllowAny]
+    authentication_classes = []
+
     class InputSerializer(serializers.Serializer):
         certificate_id = serializers.CharField(required=False, allow_blank=True, allow_null=True)
         register_id = serializers.CharField(required=False, allow_blank=True, allow_null=True)
@@ -129,10 +143,9 @@ class UpdateCertificate(APIView):
 # RENDER CERTIFICATE IMAGE FROM DATABASE
 # ==========================================
 class RenderCertificateImage(APIView):
-    """
-    Fetches certificate data dynamically from database and streams high-res JPG image directly from memory.
-    Does NOT read from or write to disk filesystem.
-    """
+    permission_classes = [AllowAny]
+    authentication_classes = []
+
     def get(self, request):
         register_id = request.GET.get('register_id') or request.GET.get('certificate_id') or request.GET.get('id')
         if not register_id:
@@ -162,9 +175,9 @@ class RenderCertificateImage(APIView):
 # DOWNLOAD CERTIFICATE JPG STREAM
 # ==========================================
 class DownloadCertificateJPG(APIView):
-    """
-    Generates and downloads certificate image dynamically from database data.
-    """
+    permission_classes = [AllowAny]
+    authentication_classes = []
+
     def get(self, request):
         register_id = request.GET.get('register_id') or request.GET.get('certificate_id') or request.GET.get('id')
         if not register_id:

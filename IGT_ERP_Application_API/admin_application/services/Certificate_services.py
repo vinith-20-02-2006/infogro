@@ -274,7 +274,7 @@ class Certificate_services:
         }
 
     @staticmethod
-    def update_certificate(certificate_id, student_name=None, course_name=None, issue_date=None):
+    def update_certificate(certificate_id, student_name=None, course_name=None, issue_date=None, whatsapp_number=None):
         """Updates certificate details and regenerates JPG image."""
         cert = Certificate.objects.filter(models.Q(certificate_id=certificate_id) | models.Q(register_id=certificate_id)).first()
         if not cert:
@@ -284,6 +284,8 @@ class Certificate_services:
             cert.student_name = student_name
         if course_name:
             cert.course_name = course_name
+        if whatsapp_number is not None:
+            cert.whatsapp_number = whatsapp_number
         if issue_date:
             if isinstance(issue_date, str):
                 try:
@@ -313,5 +315,6 @@ class Certificate_services:
             "student_name": cert.student_name,
             "course_name": cert.course_name,
             "issue_date": issue_date_str,
-            "certificate_image": cert.certificate_image
+            "certificate_image": cert.certificate_image,
+            "whatsapp_number": cert.whatsapp_number
         }

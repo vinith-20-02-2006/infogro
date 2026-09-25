@@ -5,6 +5,7 @@ from django.http import HttpResponse, FileResponse
 from rest_framework import serializers, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from rest_framework.permissions import AllowAny
 
 from ..services.Certificate_services import Certificate_services
 
@@ -15,6 +16,9 @@ logger = logging.getLogger('django')
 # LIST ALL CERTIFICATES
 # ==========================================
 class ListCertificates(APIView):
+    permission_classes = [AllowAny]
+    authentication_classes = []
+
     def get(self, request):
         try:
             certs = Certificate_services.get_all_certificates()
@@ -28,6 +32,9 @@ class ListCertificates(APIView):
 # SEARCH ELIGIBLE STUDENTS
 # ==========================================
 class SearchEligibleStudents(APIView):
+    permission_classes = [AllowAny]
+    authentication_classes = []
+
     def get(self, request):
         query = request.GET.get('q') or request.GET.get('query')
         try:
@@ -42,6 +49,9 @@ class SearchEligibleStudents(APIView):
 # GENERATE CERTIFICATE (JPG)
 # ==========================================
 class GenerateCertificate(APIView):
+    permission_classes = [AllowAny]
+    authentication_classes = []
+
     class InputSerializer(serializers.Serializer):
         register_id = serializers.CharField(required=False, allow_blank=True, allow_null=True)
         student_name = serializers.CharField(required=True)
@@ -85,12 +95,16 @@ class GenerateCertificate(APIView):
 # UPDATE / EDIT CERTIFICATE
 # ==========================================
 class UpdateCertificate(APIView):
+    permission_classes = [AllowAny]
+    authentication_classes = []
+
     class InputSerializer(serializers.Serializer):
         certificate_id = serializers.CharField(required=False, allow_blank=True, allow_null=True)
         register_id = serializers.CharField(required=False, allow_blank=True, allow_null=True)
         student_name = serializers.CharField(required=False, allow_blank=True, allow_null=True)
         course_name = serializers.CharField(required=False, allow_blank=True, allow_null=True)
         issue_date = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+        whatsapp_number = serializers.CharField(required=False, allow_blank=True, allow_null=True)
 
     def put(self, request):
         serializer = self.InputSerializer(data=request.data)
@@ -106,7 +120,8 @@ class UpdateCertificate(APIView):
                 certificate_id=target_id,
                 student_name=data.get('student_name'),
                 course_name=data.get('course_name'),
-                issue_date=data.get('issue_date')
+                issue_date=data.get('issue_date'),
+                whatsapp_number=data.get('whatsapp_number')
             )
             return Response({
                 "message": "Certificate updated successfully.",
@@ -121,6 +136,9 @@ class UpdateCertificate(APIView):
 # DOWNLOAD CERTIFICATE JPG FILE
 # ==========================================
 class DownloadCertificateJPG(APIView):
+    permission_classes = [AllowAny]
+    authentication_classes = []
+
     def get(self, request):
         register_id = request.GET.get('register_id') or request.GET.get('certificate_id') or request.GET.get('id')
         if not register_id:

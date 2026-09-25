@@ -14,14 +14,24 @@ function Viewcertificate({ toggle, cert }) {
   };
 
   const handleWhatsApp = async () => {
-    const rawPhone = cert.whatsapp_number || cert.phone_number;
+    let rawPhone = cert.whatsapp_number || cert.phone_number;
     if (!rawPhone || !String(rawPhone).trim()) {
-      alert("Student WhatsApp number is not available.");
-      return;
+      const enteredPhone = window.prompt(`Enter WhatsApp number for ${cert.student_name || 'Student'}:`, "917010835939");
+      if (!enteredPhone || !enteredPhone.trim()) return;
+      rawPhone = enteredPhone.trim();
+      try {
+        await CertificateService.updateCertificate({
+          certificate_id: cert.register_id || cert.certificate_id,
+          whatsapp_number: rawPhone
+        });
+        cert.whatsapp_number = rawPhone;
+      } catch (e) {
+        console.log("Failed to save entered WhatsApp number:", e);
+      }
     }
     let cleanPhone = String(rawPhone).replace(/[^0-9]/g, '');
     if (!cleanPhone) {
-      alert("Student WhatsApp number is not available.");
+      alert("Valid WhatsApp number is required.");
       return;
     }
     if (cleanPhone.length === 10) {
@@ -36,19 +46,8 @@ function Viewcertificate({ toggle, cert }) {
     try {
       const response = await fetch(downloadUrl);
       const blob = await response.blob();
-      const file = new File([blob], `Certificate_${certId}.jpg`, { type: "image/jpeg" });
 
-      // 1. Native Web Share API (Mobile / supported browsers)
-      if (navigator.canShare && navigator.canShare({ files: [file] })) {
-        await navigator.share({
-          title: `Certificate of Completion - ${recipient}`,
-          text: `Congratulations ${recipient}! Here is your Certificate of Completion for ${course}.`,
-          files: [file]
-        });
-        return;
-      }
-
-      // 2. Clipboard copy for desktop Ctrl+V paste
+      // 1. Copy JPG image to clipboard for instant Ctrl+V paste in WhatsApp chat
       if (navigator.clipboard && window.ClipboardItem) {
         try {
           await navigator.clipboard.write([
@@ -62,15 +61,8 @@ function Viewcertificate({ toggle, cert }) {
       console.log("Fetch certificate image blob failed:", err);
     }
 
-    // 3. Auto-download JPG file for manual attachment & open WhatsApp
-    const a = document.createElement("a");
-    a.href = downloadUrl;
-    a.download = `Certificate_${certId}.jpg`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-
-    const message = `🎓 *CERTIFICATE OF COMPLETION (JPG)*\n\nStudent: *${recipient}*\nCourse: *${course}*\nStudent ID: *${certId}*\n\nDirect Certificate Image (JPG):\n${downloadUrl}\n\n_(The Certificate JPG file has been downloaded to your computer & copied to clipboard. Press Ctrl+V in WhatsApp to paste the image directly!)_`;
+    // 2. Directly open WhatsApp chat for student's registered WhatsApp number (without file download)
+    const message = `🎓 *CERTIFICATE OF COMPLETION (JPG FORMAT)*\n\nStudent Name: *${recipient}*\nCourse: *${course}*\nCertificate ID: *${certId}*\n\nDirect JPG Certificate Image Link:\n${downloadUrl}\n\n_(Press Ctrl+V in WhatsApp to paste the JPG image directly!)_`;
     window.open(`https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`, "_blank");
   };
 

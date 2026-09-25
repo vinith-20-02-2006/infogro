@@ -10,6 +10,7 @@ function Updatecertificate({ toggle, data, onSuccess }) {
     student_name: "",
     course_name: "",
     issue_date: "",
+    whatsapp_number: "",
   });
 
   useEffect(() => {
@@ -38,6 +39,7 @@ function Updatecertificate({ toggle, data, onSuccess }) {
         student_name: data.student_name || "",
         course_name: data.course_name || "",
         issue_date: formattedDate,
+        whatsapp_number: data.whatsapp_number || "",
       });
     }
   }, [data]);
@@ -70,12 +72,12 @@ function Updatecertificate({ toggle, data, onSuccess }) {
         <div className="popup-body">
           <form onSubmit={handleSubmit}>
             <div className="mb-3">
-              <label className="form-label">Register ID / Student ID:</label>
-              <input type="text" className="form-control" value={editData.register_id} readOnly />
+              <label className="form-label font-weight-bold">Register ID / Student ID:</label>
+              <input type="text" className="form-control bg-light" value={editData.register_id} readOnly />
             </div>
 
             <div className="mb-3">
-              <label className="form-label">Student Name:</label>
+              <label className="form-label font-weight-bold">Student Name:</label>
               <input
                 type="text"
                 className="form-control"
@@ -86,7 +88,7 @@ function Updatecertificate({ toggle, data, onSuccess }) {
             </div>
 
             <div className="mb-3">
-              <label className="form-label">Course Name:</label>
+              <label className="form-label font-weight-bold">Course Name:</label>
               <input
                 type="text"
                 className="form-control"
@@ -97,7 +99,18 @@ function Updatecertificate({ toggle, data, onSuccess }) {
             </div>
 
             <div className="mb-3">
-              <label className="form-label">Issue Date:</label>
+              <label className="form-label font-weight-bold">WhatsApp Number:</label>
+              <input
+                type="text"
+                className="form-control"
+                placeholder="Enter Student WhatsApp number (e.g. 917010835939)"
+                value={editData.whatsapp_number}
+                onChange={(e) => setEditData({ ...editData, whatsapp_number: e.target.value })}
+              />
+            </div>
+
+            <div className="mb-3">
+              <label className="form-label font-weight-bold">Issue Date:</label>
               <input
                 type="date"
                 className="form-control"

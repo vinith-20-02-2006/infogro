@@ -49,7 +49,7 @@
 }
 
 .search-results-dropdown {
-  max-height: 180px;
+  max-height: 250px;
   overflow-y: auto;
   border: 1px solid #CBD5E1;
   border-radius: 10px;
@@ -58,11 +58,13 @@
 
 .result-item {
   cursor: pointer;
-  transition: background 0.2s;
+  transition: all 0.2s ease-in-out;
 }
 
 .result-item:hover {
-  background: #F1F5F9;
+  background: #F1F5F9 !important;
+  border-color: #6366F1 !important;
+  box-shadow: 0 4px 12px rgba(79, 70, 229, 0.08);
 }
 
 @keyframes popupFade {

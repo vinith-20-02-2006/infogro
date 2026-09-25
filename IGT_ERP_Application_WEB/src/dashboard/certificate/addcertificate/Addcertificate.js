@@ -96,36 +96,76 @@ function Addcertificate({ onBack, onSuccess }) {
         {/* Search Eligible Student Bar */}
         <div className="card p-3 mb-4 border-0" style={{ background: "#F8FAFC", borderRadius: "14px" }}>
           <label className="form-label font-weight-bold" style={{ color: "#4F46E5", fontSize: "15px", fontWeight: "600" }}>
-            <i className="bx bx-search-alt me-1"></i> Search Eligible Student (Name or Register ID):
+            <i className="bx bx-search-alt me-1"></i> Search Eligible Student (Name, Register ID, Email, WhatsApp):
           </label>
           <input
             type="text"
             className="form-control form-control-lg bg-white"
             style={{ borderRadius: "10px", border: "1px solid #CBD5E1" }}
-            placeholder="Type Student Name or Register ID (e.g. Priya or IGP001)..."
+            placeholder="Type Student Name, Register ID, Email, or WhatsApp Number (e.g. Priya or IGP001)..."
             value={searchQuery}
             onChange={(e) => handleSearchStudents(e.target.value)}
           />
 
-          {/* Autocomplete Results List */}
-          {eligibleStudents.length > 0 && (
-            <div className="search-results-list shadow-sm mt-2 bg-white border rounded" style={{ maxHeight: "200px", overflowY: "auto" }}>
+          {/* Autocomplete / Prominent Results List */}
+          {eligibleStudents.length > 0 ? (
+            <div className="search-results-dropdown shadow-sm mt-3 bg-white border rounded p-2" style={{ maxHeight: "250px", overflowY: "auto" }}>
+              <div className="text-muted px-2 py-1 small font-weight-bold border-bottom mb-2 d-flex justify-content-between align-items-center">
+                <span>
+                  <i className="bx bx-user-check me-1 text-primary"></i> SELECT AN ELIGIBLE STUDENT BELOW ({eligibleStudents.length} CANDIDATE{eligibleStudents.length > 1 ? "S" : ""} FOUND):
+                </span>
+                <span className="badge bg-indigo-subtle text-primary border">
+                  Assignment & Assessment Completed
+                </span>
+              </div>
               {eligibleStudents.map((st) => (
                 <div
                   key={st.register_id || st.enrollment_id}
-                  className="search-result-item p-2 border-bottom"
-                  style={{ cursor: "pointer" }}
+                  className="result-item p-3 mb-2 rounded border d-flex justify-content-between align-items-center"
+                  style={{
+                    cursor: "pointer",
+                    background: formData.register_id === st.register_id ? "#EEF2FF" : "#FFFFFF",
+                    borderColor: formData.register_id === st.register_id ? "#6366F1" : "#E2E8F0",
+                    transition: "all 0.15s ease"
+                  }}
                   onClick={() => handleSelectStudent(st)}
                 >
                   <div>
-                    <strong style={{ color: "#1E293B" }}>{st.student_name}</strong> ({st.register_id}) -{" "}
-                    <span className="text-muted">{st.course_name}</span>
+                    <div className="font-weight-bold" style={{ color: "#1E293B", fontSize: "15px" }}>
+                      <i className="bx bx-user me-1" style={{ color: "#4F46E5" }}></i> {st.student_name}
+                      <span className="badge bg-light text-primary border ms-2">{st.register_id}</span>
+                    </div>
+                    <div className="text-muted small mt-1">
+                      <i className="bx bx-book-open me-1"></i> {st.course_name}
+                      {st.whatsapp_number && (
+                        <span className="ms-3 text-secondary">
+                          <i className="bx bxl-whatsapp text-success me-1"></i> {st.whatsapp_number}
+                        </span>
+                      )}
+                    </div>
                   </div>
-                  <small className="text-success font-weight-bold">
-                    <i className="bx bx-check-circle me-1"></i> Assignment & Assessment Completed
-                  </small>
+                  <div className="text-end">
+                    <span className="badge bg-success-subtle text-success border border-success me-2 px-2 py-1" style={{ fontSize: "12px" }}>
+                      <i className="bx bx-check-double me-1"></i> Ready
+                    </span>
+                    <button
+                      type="button"
+                      className="btn btn-sm btn-primary ms-1"
+                      style={{ backgroundColor: "#4F46E5", borderColor: "#4F46E5", borderRadius: "6px" }}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleSelectStudent(st);
+                      }}
+                    >
+                      Select
+                    </button>
+                  </div>
                 </div>
               ))}
+            </div>
+          ) : (
+            <div className="mt-3 p-3 bg-white border rounded text-center text-muted" style={{ borderRadius: "10px" }}>
+              <i className="bx bx-info-circle me-1 text-warning"></i> No eligible students found matching query. Ensure assignment & assessment are completed and certificate is not already generated.
             </div>
           )}
         </div>

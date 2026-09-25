@@ -118,22 +118,37 @@ class Certificate_services:
     def search_eligible_students(query=None):
         """
         Search eligible students from database.
-        Matches student_name, first_name, last_name, username, or register_id.
-        Excludes explicitly Failed enrollments.
+        Condition:
+        1. assignment_status in ['completed', 'passed']
+        2. assessment_status in ['completed', 'passed']
+        3. Certificate does NOT already exist for this student.
         """
-        qs = Enrollment.objects.exclude(
-            models.Q(assignment_status__iexact='Failed') |
-            models.Q(assessment_status__iexact='Failed')
+        valid_statuses = ['Completed', 'Passed', 'completed', 'passed', 'COMPLETED', 'PASSED']
+
+        qs = Enrollment.objects.filter(
+            assignment_status__in=valid_statuses,
+            assessment_status__in=valid_statuses
         )
+
+        existing_cert_reg_ids = set(Certificate.objects.values_list('register_id', flat=True))
+        existing_cert_user_ids = set(Certificate.objects.filter(user__isnull=False).values_list('user_id', flat=True))
+        existing_cert_student_names = set(Certificate.objects.values_list('student_name', flat=True))
+
+        if existing_cert_reg_ids:
+            qs = qs.exclude(register_id__in=existing_cert_reg_ids)
+        if existing_cert_user_ids:
+            qs = qs.exclude(user_id__in=existing_cert_user_ids)
 
         if query and str(query).strip():
             q = str(query).strip()
             qs = qs.filter(
                 models.Q(student_name__icontains=q) |
                 models.Q(register_id__icontains=q) |
+                models.Q(whatsapp_number__icontains=q) |
                 models.Q(user__first_name__icontains=q) |
                 models.Q(user__last_name__icontains=q) |
-                models.Q(user__username__icontains=q)
+                models.Q(user__username__icontains=q) |
+                models.Q(user__email__icontains=q)
             )
 
         results = []
@@ -145,6 +160,9 @@ class Certificate_services:
                 name = full_user_name if full_user_name else item.user.username
             if not name:
                 name = f"Student {item.enrollment_id}"
+
+            if name in existing_cert_student_names:
+                continue
 
             course_name = item.course.Course_name if item.course else "FullStack Python"
 
@@ -165,14 +183,14 @@ class Certificate_services:
         # Also search Users directly if no enrollment match found for the query
         if query and str(query).strip():
             q = str(query).strip()
-            existing_reg_ids = {r['register_id'] for r in results}
-            existing_names = {r['student_name'].lower() for r in results}
+            existing_reg_ids = {r['register_id'] for r in results} | existing_cert_reg_ids
+            existing_names = {r['student_name'].lower() for r in results} | {n.lower() for n in existing_cert_student_names if n}
 
             users = User.objects.filter(is_superuser=False).filter(
                 models.Q(first_name__icontains=q) |
                 models.Q(last_name__icontains=q) |
                 models.Q(username__icontains=q)
-            )
+            ).exclude(id__in=existing_cert_user_ids)
 
             for idx, u in enumerate(users, start=len(results) + 1):
                 full_name = f"{u.first_name} {u.last_name}".strip() or u.username
@@ -326,40 +344,32 @@ class Certificate_services:
         effective_course_name = course_obj.Course_name if course_obj else (course_name or "Course")
         img_url = f"/certificate/render_certificate_image?register_id={register_id}"
 
-        cert, created = Certificate.objects.get_or_create(
-            register_id=register_id,
-            defaults={
-                'certificate_id': cert_id,
-                'verification_token': verification_token,
-                'course': course_obj,
-                'student_name': student_name,
-                'course_name': effective_course_name,
-                'joining_date': joining_date,
-                'issue_date': issue_date,
-                'assignment_status': assignment_status,
-                'assessment_status': assessment_status,
-                'assignment_score': assignment_score,
-                'assessment_score': assessment_score,
-                'certificate_image': img_url,
-                'whatsapp_number': whatsapp_number,
-                'certificate_status': 'Active'
-            }
-        )
+        # Prevent duplicate certificate creation
+        existing_cert = Certificate.objects.filter(
+            models.Q(register_id=register_id) |
+            (models.Q(student_name__iexact=student_name) & models.Q(course_name__iexact=effective_course_name))
+        ).first()
 
-        if not created:
-            if course_obj:
-                cert.course = course_obj
-            cert.student_name = student_name
-            cert.course_name = effective_course_name
-            cert.issue_date = issue_date
-            if joining_date:
-                cert.joining_date = joining_date
-            cert.assignment_score = assignment_score
-            cert.assessment_score = assessment_score
-            cert.certificate_image = img_url
-            if whatsapp_number:
-                cert.whatsapp_number = whatsapp_number
-            cert.save()
+        if existing_cert:
+            raise ValueError(f"Certificate already exists for student '{student_name}' (Register ID: {register_id}). Duplicate creation is not allowed.")
+
+        cert = Certificate.objects.create(
+            register_id=register_id,
+            certificate_id=cert_id,
+            verification_token=verification_token,
+            course=course_obj,
+            student_name=student_name,
+            course_name=effective_course_name,
+            joining_date=joining_date,
+            issue_date=issue_date,
+            assignment_status=assignment_status,
+            assessment_status=assessment_status,
+            assignment_score=assignment_score,
+            assessment_score=assessment_score,
+            certificate_image=img_url,
+            whatsapp_number=whatsapp_number,
+            certificate_status='Active'
+        )
 
         return {
             "certificate_id": cert.certificate_id,
