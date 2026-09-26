@@ -1,6 +1,6 @@
 import React from "react";
 import "./viewcertificate.css";
-import CertificateService from "../../../services/CertificateService";
+import CertificateService from "../CertificateService";
 
 function Viewcertificate({ toggle, cert }) {
   if (!cert) return null;

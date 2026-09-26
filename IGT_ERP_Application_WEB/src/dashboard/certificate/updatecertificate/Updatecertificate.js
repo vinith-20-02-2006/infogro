@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import "./updatecertificate.css";
-import CertificateService from "../../../services/CertificateService";
+import CertificateService from "../CertificateService";
 
 function Updatecertificate({ toggle, data, onSuccess }) {
   const [loading, setLoading] = useState(false);

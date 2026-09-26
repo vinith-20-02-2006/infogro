@@ -10,7 +10,7 @@ import Addcertificate from "./addcertificate/Addcertificate";
 import Updatecertificate from "./updatecertificate/Updatecertificate";
 import Viewcertificate from "./viewcertificate/Viewcertificate";
 
-import CertificateService from "../../services/CertificateService";
+import CertificateService from "./CertificateService";
 
 
 function Certificate() {
@@ -104,15 +104,19 @@ function Certificate() {
 
         setViewMode("list");
 
+        setSelectedCert(null);
+
         setCurrentPage(1);
 
     };
 
-    const handleCertificateUpdated = async () => {
+    const handleCertificateUpdated = handleCertificateCreated;
 
-        await fetchCertificates();
+    const handleOpenAdd = () => {
 
-        setUpdatePopupVisible(false);
+        setSelectedCert(null);
+
+        setViewMode("add");
 
     };
 
@@ -120,7 +124,7 @@ function Certificate() {
 
         setSelectedCert(cert);
 
-        toggleUpdatePopup();
+        setViewMode("edit");
 
     };
 
@@ -255,11 +259,15 @@ function Certificate() {
             {/* ========================================================================= */}
             {/* VIEW MODE 1: FULL-PAGE ADD CERTIFICATE SCREEN                             */}
             {/* ========================================================================= */}
-            {viewMode === "add" && (
+            {(viewMode === "add" || viewMode === "edit") && (
 
                 <Addcertificate
-                    onBack={() => setViewMode("list")}
+                    onBack={() => {
+                        setViewMode("list");
+                        setSelectedCert(null);
+                    }}
                     onSuccess={handleCertificateCreated}
+                    editData={viewMode === "edit" ? selectedCert : null}
                 />
 
             )}
@@ -290,7 +298,7 @@ function Certificate() {
 
                         <button
                             className="btn btn-primary add-btn"
-                            onClick={() => setViewMode("add")}
+                            onClick={handleOpenAdd}
                         >
 
                             <i className="bx bx-plus me-2"></i>
