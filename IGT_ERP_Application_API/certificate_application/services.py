@@ -214,8 +214,11 @@ class Certificate_services:
         return results
 
     @staticmethod
-    def generate_certificate_image_bytes(student_name, course_name, issue_date_str, register_id):
-        """Generates a high-quality JPG image certificate in RAM using Pillow (PIL) and io.BytesIO without writing to disk."""
+    def generate_certificate_image_bytes(student_name, course_name, issue_date_str, register_id, certificate_id=None):
+        """Generates a high-quality JPG image certificate in RAM using Pillow (PIL) and io.BytesIO."""
+        if not certificate_id:
+            certificate_id = f"CERT-{datetime.now().year}-{register_id}"
+
         width, height = 1600, 1131
         img = Image.new("RGB", (width, height), color=(255, 255, 255))
         draw = ImageDraw.Draw(img)
@@ -279,13 +282,24 @@ class Certificate_services:
         draw.ellipse([(width // 2 - 40, 690), (width // 2 + 40, 770)], fill=GOLD, outline=BORDER_GOLD, width=3)
         draw.text((width // 2, 730), "IGT", fill=NAVY, font=subtitle_font, anchor="mm")
 
+        # Display Certificate ID, Student ID, and Issue Date
+        draw.text((250, 880), f"Certificate ID: {certificate_id}", fill=NAVY, font=meta_bold)
         draw.text((250, 920), f"Student ID: {register_id}", fill=DARK_GRAY, font=meta_bold)
         draw.text((250, 960), f"Issue Date: {issue_date_str}", fill=DARK_GRAY, font=meta_font)
-        draw.line([(250, 900), (450, 900)], fill=DARK_GRAY, width=2)
+        draw.line([(250, 860), (450, 860)], fill=DARK_GRAY, width=2)
 
         draw.text((width - 450, 920), "Authorized Signature", fill=NAVY, font=meta_bold)
         draw.text((width - 450, 960), "IGT Executive Director", fill=DARK_GRAY, font=meta_font)
         draw.line([(width - 450, 900), (width - 250, 900)], fill=DARK_GRAY, width=2)
+
+        # Save to local media directory (MEDIA_ROOT/certificates)
+        try:
+            cert_dir = os.path.join(settings.MEDIA_ROOT, 'certificates')
+            os.makedirs(cert_dir, exist_ok=True)
+            file_path = os.path.join(cert_dir, f"certificate_{register_id}.jpg")
+            img.save(file_path, "JPEG", quality=95)
+        except Exception as e:
+            pass
 
         buffer = io.BytesIO()
         img.save(buffer, "JPEG", quality=95)

@@ -163,7 +163,8 @@ class RenderCertificateImage(APIView):
             student_name=student_name,
             course_name=course_name,
             issue_date_str=issue_date_str,
-            register_id=cert.register_id or cert.certificate_id
+            register_id=cert.register_id or cert.certificate_id,
+            certificate_id=cert.certificate_id
         )
 
         response = HttpResponse(image_bytes, content_type='image/jpeg')
@@ -195,7 +196,8 @@ class DownloadCertificateJPG(APIView):
             student_name=student_name,
             course_name=course_name,
             issue_date_str=issue_date_str,
-            register_id=cert.register_id or cert.certificate_id
+            register_id=cert.register_id or cert.certificate_id,
+            certificate_id=cert.certificate_id
         )
 
         filename = f"certificate_{cert.register_id or cert.certificate_id}.jpg"

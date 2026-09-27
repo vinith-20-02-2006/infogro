@@ -1,5 +1,6 @@
 from django.urls import path
-from .views import user_views, Course_views, Certificate_views
+from .views import user_views, Course_views
+from certificate_application import views as Certificate_views
 from rest_framework import routers
 
 router = routers.DefaultRouter()

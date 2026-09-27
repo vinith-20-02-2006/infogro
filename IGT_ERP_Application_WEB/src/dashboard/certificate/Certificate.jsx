@@ -10,7 +10,37 @@ import Addcertificate from "./addcertificate/Addcertificate";
 import Updatecertificate from "./updatecertificate/Updatecertificate";
 import Viewcertificate from "./viewcertificate/Viewcertificate";
 
-import CertificateService from "./CertificateService";
+const getApiUrl = () => {
+    if (process.env.REACT_APP_API_URL) {
+        return process.env.REACT_APP_API_URL;
+    }
+    if (typeof window !== "undefined" && window.location && window.location.hostname) {
+        return `http://${window.location.hostname}:8000`;
+    }
+    return "http://127.0.0.1:8000";
+};
+
+const API_URL = getApiUrl();
+
+const getAuthHeaders = () => {
+    const headers = { "Content-Type": "application/json" };
+    try {
+        const tokensStr = localStorage.getItem("authTokens");
+        if (tokensStr) {
+            const tokens = JSON.parse(tokensStr);
+            if (tokens && tokens.access) {
+                headers["Authorization"] = `Bearer ${tokens.access}`;
+            }
+        }
+    } catch (e) {
+        console.error("Error reading auth token:", e);
+    }
+    return headers;
+};
+
+const getDownloadUrl = (registerId) => {
+    return `${API_URL}/certificate/download_certificate_jpg?register_id=${registerId}`;
+};
 
 
 function Certificate() {
@@ -25,6 +55,7 @@ function Certificate() {
     const [certificates, setCertificates] = useState([]);
     const [selectedCert, setSelectedCert] = useState(null);
     const [loading, setLoading] = useState(false);
+    const [whatsappStatusMap, setWhatsappStatusMap] = useState({});
 
 
     // =====================================================
@@ -37,7 +68,16 @@ function Certificate() {
 
         try {
 
-            const data = await CertificateService.listCertificates();
+            let res = await fetch(`${API_URL}/certificate/list_certificates`, {
+                headers: getAuthHeaders(),
+            });
+            if (res.status === 401) {
+                res = await fetch(`${API_URL}/certificate/list_certificates`);
+            }
+            if (!res.ok) {
+                throw new Error(`Failed to fetch certificates: ${res.statusText}`);
+            }
+            const data = await res.json();
 
             console.log("Certificates fetched:", data);
 
@@ -137,25 +177,26 @@ function Certificate() {
     };
 
     const handleWhatsAppShare = async (cert) => {
+        const certKey = cert.register_id || cert.certificate_id;
+        setWhatsappStatusMap((prev) => ({ ...prev, [certKey]: "loading" }));
+
         let rawPhone = cert.whatsapp_number || cert.phone_number;
         if (!rawPhone || !String(rawPhone).trim()) {
-            const enteredPhone = window.prompt(`Enter WhatsApp number for ${cert.student_name || 'Student'}:`, "917010835939");
-            if (!enteredPhone || !enteredPhone.trim()) return;
-            rawPhone = enteredPhone.trim();
-            try {
-                await CertificateService.updateCertificate({
-                    certificate_id: cert.register_id || cert.certificate_id,
-                    whatsapp_number: rawPhone
-                });
-                cert.whatsapp_number = rawPhone;
-                fetchCertificates();
-            } catch (e) {
-                console.log("Failed to save entered WhatsApp number:", e);
-            }
+            setWhatsappStatusMap((prev) => ({ ...prev, [certKey]: "error" }));
+            alert(`Student ${cert.student_name || 'Student'} does not have a registered WhatsApp number in the database.`);
+            setTimeout(() => {
+                setWhatsappStatusMap((prev) => ({ ...prev, [certKey]: null }));
+            }, 3000);
+            return;
         }
+
         let cleanPhone = String(rawPhone).replace(/[^0-9]/g, '');
         if (!cleanPhone) {
-            alert("Valid WhatsApp number is required.");
+            setWhatsappStatusMap((prev) => ({ ...prev, [certKey]: "error" }));
+            alert("Valid registered WhatsApp number is required.");
+            setTimeout(() => {
+                setWhatsappStatusMap((prev) => ({ ...prev, [certKey]: null }));
+            }, 3000);
             return;
         }
         if (cleanPhone.length === 10) {
@@ -165,13 +206,11 @@ function Certificate() {
         const certId = cert.register_id || cert.certificate_id;
         const recipient = cert.student_name || "Student";
         const course = cert.course_name || "Course";
-        const downloadUrl = CertificateService.getDownloadUrl(certId);
+        const downloadUrl = getDownloadUrl(certId);
 
         try {
             const response = await fetch(downloadUrl);
             const blob = await response.blob();
-
-            // 1. Copy JPG image to clipboard for instant Ctrl+V paste in WhatsApp chat
             if (navigator.clipboard && window.ClipboardItem) {
                 try {
                     await navigator.clipboard.write([
@@ -185,9 +224,13 @@ function Certificate() {
             console.log("Fetch certificate image blob failed:", err);
         }
 
-        // 2. Directly open WhatsApp chat for student's registered WhatsApp number (without file download)
         const message = `🎓 *CERTIFICATE OF COMPLETION (JPG FORMAT)*\n\nStudent Name: *${recipient}*\nCourse: *${course}*\nCertificate ID: *${certId}*\n\nDirect JPG Certificate Image Link:\n${downloadUrl}\n\n_(Press Ctrl+V in WhatsApp to paste the JPG image directly!)_`;
         window.open(`https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`, "_blank");
+
+        setWhatsappStatusMap((prev) => ({ ...prev, [certKey]: "sent" }));
+        setTimeout(() => {
+            setWhatsappStatusMap((prev) => ({ ...prev, [certKey]: null }));
+        }, 4000);
     };
 
     const handleDownloadCertificate = (cert) => {
@@ -196,7 +239,7 @@ function Certificate() {
             alert("Certificate is not available for download.");
             return;
         }
-        const downloadUrl = CertificateService.getDownloadUrl(certId);
+        const downloadUrl = getDownloadUrl(certId);
         if (!downloadUrl) {
             alert("Certificate is not available for download.");
             return;
@@ -431,17 +474,53 @@ function Certificate() {
                                                                 Edit
                                                             </button>
 
-                                                            <button
-                                                                className="btn btn-action btn-whatsapp"
-                                                                style={{ color: "#25D366", borderColor: "#25D366" }}
-                                                                title="Share on WhatsApp"
-                                                                onClick={() =>
-                                                                    handleWhatsAppShare(cert)
+                                                            {(() => {
+                                                                const status = whatsappStatusMap[cert.register_id || cert.certificate_id];
+                                                                if (status === "loading") {
+                                                                    return (
+                                                                        <button
+                                                                            className="btn btn-action btn-whatsapp"
+                                                                            style={{ color: "#25D366", borderColor: "#25D366" }}
+                                                                            title="Sending Certificate..."
+                                                                            disabled
+                                                                        >
+                                                                            <span className="spinner-border spinner-border-sm text-success" role="status"></span>
+                                                                        </button>
+                                                                    );
                                                                 }
-                                                            >
-                                                                <i className="bx bxl-whatsapp me-1"></i>
-                                                                WhatsApp
-                                                            </button>
+                                                                if (status === "sent") {
+                                                                    return (
+                                                                        <button
+                                                                            className="btn btn-action btn-success"
+                                                                            style={{ backgroundColor: "#25D366", color: "#FFFFFF", borderColor: "#25D366" }}
+                                                                            title="Sent!"
+                                                                        >
+                                                                            <i className="bx bx-check font-weight-bold"></i>
+                                                                        </button>
+                                                                    );
+                                                                }
+                                                                if (status === "error") {
+                                                                    return (
+                                                                        <button
+                                                                            className="btn btn-action btn-danger"
+                                                                            title="Missing WhatsApp Number"
+                                                                            onClick={() => handleWhatsAppShare(cert)}
+                                                                        >
+                                                                            <i className="bx bx-error-circle"></i>
+                                                                        </button>
+                                                                    );
+                                                                }
+                                                                return (
+                                                                    <button
+                                                                        className="btn btn-action btn-whatsapp"
+                                                                        style={{ color: "#25D366", borderColor: "#25D366" }}
+                                                                        title="Share on WhatsApp"
+                                                                        onClick={() => handleWhatsAppShare(cert)}
+                                                                    >
+                                                                        <i className="bx bxl-whatsapp"></i>
+                                                                    </button>
+                                                                );
+                                                            })()}
 
                                                         </div>
 

@@ -1,6 +1,32 @@
 import React, { useState, useEffect } from "react";
 import "./updatecertificate.css";
-import CertificateService from "../CertificateService";
+const getApiUrl = () => {
+  if (process.env.REACT_APP_API_URL) {
+    return process.env.REACT_APP_API_URL;
+  }
+  if (typeof window !== "undefined" && window.location && window.location.hostname) {
+    return `http://${window.location.hostname}:8000`;
+  }
+  return "http://127.0.0.1:8000";
+};
+
+const API_URL = getApiUrl();
+
+const getAuthHeaders = () => {
+  const headers = { "Content-Type": "application/json" };
+  try {
+    const tokensStr = localStorage.getItem("authTokens");
+    if (tokensStr) {
+      const tokens = JSON.parse(tokensStr);
+      if (tokens && tokens.access) {
+        headers["Authorization"] = `Bearer ${tokens.access}`;
+      }
+    }
+  } catch (e) {
+    console.error("Error reading auth token:", e);
+  }
+  return headers;
+};
 
 function Updatecertificate({ toggle, data, onSuccess }) {
   const [loading, setLoading] = useState(false);
@@ -48,7 +74,27 @@ function Updatecertificate({ toggle, data, onSuccess }) {
     e.preventDefault();
     setLoading(true);
     try {
-      await CertificateService.updateCertificate(editData);
+      let res = await fetch(`${API_URL}/certificate/update_certificate`, {
+        method: "PUT",
+        headers: getAuthHeaders(),
+        body: JSON.stringify(editData),
+      });
+
+      if (res.status === 401) {
+        res = await fetch(`${API_URL}/certificate/update_certificate`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(editData),
+        });
+      }
+
+      const resData = await res.json();
+      if (!res.ok) {
+        const errorMsg = resData.message || resData.detail || resData.error || "Failed to update certificate.";
+        const error = new Error(errorMsg);
+        error.responseData = resData;
+        throw error;
+      }
       if (onSuccess) onSuccess();
       toggle();
     } catch (err) {
