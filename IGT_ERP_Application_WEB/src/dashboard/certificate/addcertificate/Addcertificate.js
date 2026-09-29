@@ -1,34 +1,9 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useContext } from "react";
 import "./addcertificate.css";
-const getApiUrl = () => {
-  if (process.env.REACT_APP_API_URL) {
-    return process.env.REACT_APP_API_URL;
-  }
-  if (typeof window !== "undefined" && window.location && window.location.hostname) {
-    return `http://${window.location.hostname}:8000`;
-  }
-  return "http://127.0.0.1:8000";
-};
-
-const API_URL = getApiUrl();
-
-const getAuthHeaders = () => {
-  const headers = { "Content-Type": "application/json" };
-  try {
-    const tokensStr = localStorage.getItem("authTokens");
-    if (tokensStr) {
-      const tokens = JSON.parse(tokensStr);
-      if (tokens && tokens.access) {
-        headers["Authorization"] = `Bearer ${tokens.access}`;
-      }
-    }
-  } catch (e) {
-    console.error("Error reading auth token:", e);
-  }
-  return headers;
-};
+import AuthContext from "../../../services/AuthContext";
 
 function Addcertificate({ onBack, onSuccess, editData }) {
+  const { insert, update, Fetch } = useContext(AuthContext);
   const isEdit = Boolean(editData);
   const [searchQuery, setSearchQuery] = useState("");
   const [eligibleStudents, setEligibleStudents] = useState([]);
@@ -51,21 +26,12 @@ function Addcertificate({ onBack, onSuccess, editData }) {
   const handleSearchStudents = async (query) => {
     setSearchQuery(query);
     try {
-      const url = query && query.trim().length > 0
-        ? `${API_URL}/certificate/search_eligible_students?q=${encodeURIComponent(query)}`
-        : `${API_URL}/certificate/search_eligible_students`;
-      
-      let res = await fetch(url, {
-        headers: getAuthHeaders(),
-      });
-      if (res.status === 401) {
-        res = await fetch(url);
+      const data = await Fetch({ q: query }, "search_eligible_students");
+      if (Array.isArray(data)) {
+        setEligibleStudents(data);
+      } else {
+        setEligibleStudents([]);
       }
-      if (!res.ok) {
-        throw new Error(`Search error: ${res.statusText}`);
-      }
-      const data = await res.json();
-      setEligibleStudents(data);
     } catch (err) {
       console.error("Search error:", err);
     }
@@ -139,62 +105,16 @@ function Addcertificate({ onBack, onSuccess, editData }) {
     setLoading(true);
     try {
       if (isEdit) {
-        let res = await fetch(`${API_URL}/certificate/update_certificate`, {
-          method: "PUT",
-          headers: getAuthHeaders(),
-          body: JSON.stringify({
-            certificate_id: formData.certificate_id || formData.register_id,
-            register_id: formData.register_id,
-            student_name: formData.student_name,
-            course_name: formData.course_name,
-            issue_date: formData.issue_date,
-            whatsapp_number: formData.whatsapp_number,
-          }),
-        });
-
-        if (res.status === 401) {
-          res = await fetch(`${API_URL}/certificate/update_certificate`, {
-            method: "PUT",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              certificate_id: formData.certificate_id || formData.register_id,
-              register_id: formData.register_id,
-              student_name: formData.student_name,
-              course_name: formData.course_name,
-              issue_date: formData.issue_date,
-              whatsapp_number: formData.whatsapp_number,
-            }),
-          });
-        }
-
-        const data = await res.json();
-        if (!res.ok) {
-          const errorMsg = data.message || data.detail || data.error || "Failed to update certificate.";
-          const error = new Error(errorMsg);
-          error.responseData = data;
-          throw error;
-        }
+        await update({
+          certificate_id: formData.certificate_id || formData.register_id,
+          register_id: formData.register_id,
+          student_name: formData.student_name,
+          course_name: formData.course_name,
+          issue_date: formData.issue_date,
+          whatsapp_number: formData.whatsapp_number,
+        }, "update_certificate");
       } else {
-        let res = await fetch(`${API_URL}/certificate/generate_certificate`, {
-          method: "POST",
-          headers: getAuthHeaders(),
-          body: JSON.stringify(formData),
-        });
-        
-        if (res.status === 401) {
-          res = await fetch(`${API_URL}/certificate/generate_certificate`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(formData),
-          });
-        }
-
-        const data = await res.json();
-        if (!res.ok) {
-          const error = new Error(data.message || data.detail || data.error || "Failed to generate certificate.");
-          error.responseData = data;
-          throw error;
-        }
+        await insert(formData, "generate_certificate");
       }
       if (onSuccess) onSuccess();
       if (onBack) onBack();

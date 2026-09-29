@@ -1,27 +1,18 @@
-import React, { useState } from "react";
+import React, { useState, useContext } from "react";
 import "./viewcertificate.css";
-const getApiUrl = () => {
-  if (process.env.REACT_APP_API_URL) {
-    return process.env.REACT_APP_API_URL;
-  }
-  if (typeof window !== "undefined" && window.location && window.location.hostname) {
-    return `http://${window.location.hostname}:8000`;
-  }
-  return "http://127.0.0.1:8000";
-};
-
-const API_URL = getApiUrl();
-
-const getDownloadUrl = (registerId) => {
-  return `${API_URL}/certificate/download_certificate_jpg?register_id=${registerId}`;
-};
+import AuthContext from "../../../services/AuthContext";
 
 function Viewcertificate({ toggle, cert }) {
+  const { API_URL } = useContext(AuthContext);
   const [waStatus, setWaStatus] = useState("idle");
 
   if (!cert) return null;
 
   const imageUrl = `${API_URL}${cert.certificate_image}${cert.certificate_image?.includes('?') ? '&' : '?'}t=${Date.now()}`;
+
+  const getDownloadUrl = (registerId) => {
+    return `${API_URL}/adm/download_certificate_jpg?register_id=${registerId}`;
+  };
 
   const handleDownload = () => {
     const downloadUrl = getDownloadUrl(cert.register_id || cert.certificate_id);

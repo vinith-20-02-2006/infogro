@@ -1,7 +1,8 @@
 import React, {
     useState,
     useEffect,
-    useCallback
+    useCallback,
+    useContext
 } from "react";
 
 import "./Certificate.css";
@@ -10,37 +11,7 @@ import Addcertificate from "./addcertificate/Addcertificate";
 import Updatecertificate from "./updatecertificate/Updatecertificate";
 import Viewcertificate from "./viewcertificate/Viewcertificate";
 
-const getApiUrl = () => {
-    if (process.env.REACT_APP_API_URL) {
-        return process.env.REACT_APP_API_URL;
-    }
-    if (typeof window !== "undefined" && window.location && window.location.hostname) {
-        return `http://${window.location.hostname}:8000`;
-    }
-    return "http://127.0.0.1:8000";
-};
-
-const API_URL = getApiUrl();
-
-const getAuthHeaders = () => {
-    const headers = { "Content-Type": "application/json" };
-    try {
-        const tokensStr = localStorage.getItem("authTokens");
-        if (tokensStr) {
-            const tokens = JSON.parse(tokensStr);
-            if (tokens && tokens.access) {
-                headers["Authorization"] = `Bearer ${tokens.access}`;
-            }
-        }
-    } catch (e) {
-        console.error("Error reading auth token:", e);
-    }
-    return headers;
-};
-
-const getDownloadUrl = (registerId) => {
-    return `${API_URL}/certificate/download_certificate_jpg?register_id=${registerId}`;
-};
+import AuthContext from "../../services/AuthContext";
 
 
 function Certificate() {
@@ -57,6 +28,12 @@ function Certificate() {
     const [loading, setLoading] = useState(false);
     const [whatsappStatusMap, setWhatsappStatusMap] = useState({});
 
+    const { getData, API_URL } = useContext(AuthContext);
+
+    const getDownloadUrl = (registerId) => {
+        return `${API_URL}/adm/download_certificate_jpg?register_id=${registerId}`;
+    };
+
 
     // =====================================================
     // FETCH CERTIFICATES FROM DATABASE
@@ -68,16 +45,7 @@ function Certificate() {
 
         try {
 
-            let res = await fetch(`${API_URL}/certificate/list_certificates`, {
-                headers: getAuthHeaders(),
-            });
-            if (res.status === 401) {
-                res = await fetch(`${API_URL}/certificate/list_certificates`);
-            }
-            if (!res.ok) {
-                throw new Error(`Failed to fetch certificates: ${res.statusText}`);
-            }
-            const data = await res.json();
+            const data = await getData("list_certificates");
 
             console.log("Certificates fetched:", data);
 
@@ -103,7 +71,7 @@ function Certificate() {
 
         }
 
-    }, []);
+    }, [getData]);
 
 
     // =====================================================

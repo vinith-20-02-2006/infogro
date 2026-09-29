@@ -30,6 +30,9 @@ class ListCertificates(APIView):
             logger.exception("Failed to list certificates")
             return Response({"message": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
+    def post(self, request):
+        return self.get(request)
+
 
 # ==========================================
 # SEARCH ELIGIBLE STUDENTS
@@ -40,6 +43,15 @@ class SearchEligibleStudents(APIView):
 
     def get(self, request):
         query = request.GET.get('q') or request.GET.get('query')
+        try:
+            eligible_students = Certificate_services.search_eligible_students(query=query)
+            return Response(eligible_students, status=status.HTTP_200_OK)
+        except Exception as e:
+            logger.exception("Failed to search eligible students")
+            return Response({"message": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+    def post(self, request):
+        query = (request.data.get('q') if isinstance(request.data, dict) else None) or (request.data.get('query') if isinstance(request.data, dict) else None) or request.GET.get('q') or request.GET.get('query')
         try:
             eligible_students = Certificate_services.search_eligible_students(query=query)
             return Response(eligible_students, status=status.HTTP_200_OK)
@@ -137,6 +149,9 @@ class UpdateCertificate(APIView):
         except Exception as e:
             logger.exception("Failed to update certificate")
             return Response({"message": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+    def post(self, request):
+        return self.put(request)
 
 
 # ==========================================

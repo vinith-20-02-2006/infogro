@@ -298,6 +298,7 @@ export const AuthProvider = ({ children }) => {
                 Delete,
                 Fetch,
                 update,
+                API_URL,
             }}
         >
             {children}
