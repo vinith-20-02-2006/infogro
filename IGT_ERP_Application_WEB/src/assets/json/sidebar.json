@@ -10,7 +10,7 @@
   },
   {
     "title": "Certificates",
-    "path": "/certificate",
+    "path": "/adm",
     "active": "btn-primary",
     "element": "<Certificate/>",
     "icon": "menu-icon tf-icons bx bx-award",

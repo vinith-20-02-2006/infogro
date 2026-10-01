@@ -10,6 +10,7 @@ import "./Certificate.css";
 import Addcertificate from "./addcertificate/Addcertificate";
 import Updatecertificate from "./updatecertificate/Updatecertificate";
 import Viewcertificate from "./viewcertificate/Viewcertificate";
+import Deletecertificate from "./deletecertificate/Deletecertificate";
 
 import AuthContext from "../../services/AuthContext";
 
@@ -21,6 +22,7 @@ function Certificate() {
 
     const [updatePopupVisible, setUpdatePopupVisible] = useState(false);
     const [viewPopupVisible, setViewPopupVisible] = useState(false);
+    const [deletePopupVisible, setDeletePopupVisible] = useState(false);
 
     const [currentPage, setCurrentPage] = useState(1);
     const [certificates, setCertificates] = useState([]);
@@ -101,6 +103,12 @@ function Certificate() {
 
     };
 
+    const toggleDeletePopup = () => {
+
+        setDeletePopupVisible(!deletePopupVisible);
+
+    };
+
 
     // =====================================================
     // HANDLERS
@@ -141,6 +149,14 @@ function Certificate() {
         setSelectedCert(cert);
 
         toggleViewPopup();
+
+    };
+
+    const handleDelete = (cert) => {
+
+        setSelectedCert(cert);
+
+        toggleDeletePopup();
 
     };
 
@@ -442,6 +458,17 @@ function Certificate() {
                                                                 Edit
                                                             </button>
 
+                                                            <button
+                                                                className="btn btn-action btn-delete"
+                                                                title="Delete Certificate"
+                                                                onClick={() =>
+                                                                    handleDelete(cert)
+                                                                }
+                                                            >
+                                                                <i className="bx bx-trash me-1"></i>
+                                                                Delete
+                                                            </button>
+
                                                             {(() => {
                                                                 const status = whatsappStatusMap[cert.register_id || cert.certificate_id];
                                                                 if (status === "loading") {
@@ -593,6 +620,21 @@ function Certificate() {
                 <Viewcertificate
                     toggle={toggleViewPopup}
                     cert={selectedCert}
+                />
+
+            )}
+
+
+            {/* ================================================= */}
+            {/* DELETE POPUP */}
+            {/* ================================================= */}
+
+            {deletePopupVisible && (
+
+                <Deletecertificate
+                    toggle={toggleDeletePopup}
+                    data={selectedCert}
+                    onSuccess={handleCertificateCreated}
                 />
 
             )}

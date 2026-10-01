@@ -6,6 +6,7 @@ urlpatterns = [
     path('search_eligible_students', views.SearchEligibleStudents.as_view(), name='search_eligible_students'),
     path('generate_certificate', views.GenerateCertificate.as_view(), name='generate_certificate'),
     path('update_certificate', views.UpdateCertificate.as_view(), name='update_certificate'),
+    path('delete_certificate', views.DeleteCertificate.as_view(), name='delete_certificate'),
     path('download_certificate_jpg', views.DownloadCertificateJPG.as_view(), name='download_certificate_jpg'),
     path('render_certificate_image', views.RenderCertificateImage.as_view(), name='render_certificate_image'),
 ]

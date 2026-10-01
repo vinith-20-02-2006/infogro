@@ -11,14 +11,14 @@ django.setup()
 
 from django.db import connection
 
-BASE_URL = "http://127.0.0.1:8000/certificate"
+BASE_URL = "http://127.0.0.1:8000/adm"
 
 def run_tests():
     results = []
     
     # Clean up test certificates so initial search tests find eligible candidates
     cursor = connection.cursor()
-    cursor.execute("DELETE FROM certificate WHERE register_id IN ('IGP001', 'IGP005') OR certificate_id IN ('IGP001', 'IGP005')")
+    cursor.execute("DELETE FROM certificate WHERE register_id IN ('IGT001', 'IGT005', 'IGT_TEST_DEL') OR certificate_id IN ('IGT001', 'IGT005', 'IGT_TEST_DEL')")
     
     # TC01: List Certificates
     try:
@@ -30,65 +30,65 @@ def run_tests():
     except Exception as e:
         results.append(("TC01", "List Certificates API", "FAIL", str(e)))
 
-    # TC02: Search Eligible Student IGP001
+    # TC02: Search Eligible Student IGT001
     try:
-        r = requests.get(f"{BASE_URL}/search_eligible_students?query=IGP001")
+        r = requests.get(f"{BASE_URL}/search_eligible_students?query=IGT001")
         assert r.status_code == 200
         data = r.json()
         assert len(data) == 1
-        assert data[0]['register_id'] == 'IGP001'
-        results.append(("TC02", "Search Eligible Student (IGP001)", "PASS", f"Found eligible student: {data[0]['student_name']}"))
+        assert data[0]['register_id'] == 'IGT001'
+        results.append(("TC02", "Search Eligible Student (IGT001)", "PASS", f"Found eligible student: {data[0]['student_name']}"))
     except Exception as e:
-        results.append(("TC02", "Search Eligible Student (IGP001)", "FAIL", str(e)))
+        results.append(("TC02", "Search Eligible Student (IGT001)", "FAIL", str(e)))
 
-    # TC03: Ineligible Student Filter (Assignment Pending IGP003)
+    # TC03: Ineligible Student Filter (Assignment Pending IGT003)
     try:
-        r = requests.get(f"{BASE_URL}/search_eligible_students?query=IGP003")
+        r = requests.get(f"{BASE_URL}/search_eligible_students?query=IGT003")
         assert r.status_code == 200
         data = r.json()
         assert len(data) == 0
-        results.append(("TC03", "Ineligible Filter - Assignment Pending (IGP003)", "PASS", "Student correctly filtered out"))
+        results.append(("TC03", "Ineligible Filter - Assignment Pending (IGT003)", "PASS", "Student correctly filtered out"))
     except Exception as e:
-        results.append(("TC03", "Ineligible Filter - Assignment Pending (IGP003)", "FAIL", str(e)))
+        results.append(("TC03", "Ineligible Filter - Assignment Pending (IGT003)", "FAIL", str(e)))
 
-    # TC04: Ineligible Student Filter (Assessment Pending IGP002)
+    # TC04: Ineligible Student Filter (Assessment Pending IGT002)
     try:
-        r = requests.get(f"{BASE_URL}/search_eligible_students?query=IGP002")
+        r = requests.get(f"{BASE_URL}/search_eligible_students?query=IGT002")
         assert r.status_code == 200
         data = r.json()
         assert len(data) == 0
-        results.append(("TC04", "Ineligible Filter - Assessment Pending (IGP002)", "PASS", "Student correctly filtered out"))
+        results.append(("TC04", "Ineligible Filter - Assessment Pending (IGT002)", "PASS", "Student correctly filtered out"))
     except Exception as e:
-        results.append(("TC04", "Ineligible Filter - Assessment Pending (IGP002)", "FAIL", str(e)))
+        results.append(("TC04", "Ineligible Filter - Assessment Pending (IGT002)", "FAIL", str(e)))
 
-    # TC05: Ineligible Student Filter (Cert Exists IGP004)
+    # TC05: Ineligible Student Filter (Cert Exists IGT004)
     try:
-        r = requests.get(f"{BASE_URL}/search_eligible_students?query=IGP004")
+        r = requests.get(f"{BASE_URL}/search_eligible_students?query=IGT004")
         assert r.status_code == 200
         data = r.json()
         assert len(data) == 0
-        results.append(("TC05", "Ineligible Filter - Certificate Exists (IGP004)", "PASS", "Student correctly filtered out"))
+        results.append(("TC05", "Ineligible Filter - Certificate Exists (IGT004)", "PASS", "Student correctly filtered out"))
     except Exception as e:
-        results.append(("TC05", "Ineligible Filter - Certificate Exists (IGP004)", "FAIL", str(e)))
+        results.append(("TC05", "Ineligible Filter - Certificate Exists (IGT004)", "FAIL", str(e)))
 
-    # Clean up IGP005 before running search eligible student test
+    # Clean up IGT005 before running search eligible student test
     cursor = connection.cursor()
-    cursor.execute("DELETE FROM certificate WHERE register_id = 'IGP005' OR certificate_id = 'IGP005'")
+    cursor.execute("DELETE FROM certificate WHERE register_id = 'IGT005' OR certificate_id = 'IGT005'")
 
-    # TC06: Search Eligible Student IGP005
+    # TC06: Search Eligible Student IGT005
     try:
-        r = requests.get(f"{BASE_URL}/search_eligible_students?query=IGP005")
+        r = requests.get(f"{BASE_URL}/search_eligible_students?query=IGT005")
         assert r.status_code == 200
         data = r.json()
         assert len(data) == 1
-        assert data[0]['register_id'] == 'IGP005'
-        results.append(("TC06", "Search Eligible Student (IGP005)", "PASS", f"Found eligible student: {data[0]['student_name']}"))
+        assert data[0]['register_id'] == 'IGT005'
+        results.append(("TC06", "Search Eligible Student (IGT005)", "PASS", f"Found eligible student: {data[0]['student_name']}"))
     except Exception as e:
-        results.append(("TC06", "Search Eligible Student (IGP005)", "FAIL", str(e)))
+        results.append(("TC06", "Search Eligible Student (IGT005)", "FAIL", str(e)))
 
     # TC07: Student Search Dropdown Display Structure
     try:
-        r = requests.get(f"{BASE_URL}/search_eligible_students?query=IGP001")
+        r = requests.get(f"{BASE_URL}/search_eligible_students?query=IGT001")
         data = r.json()[0]
         keys = ['register_id', 'student_name', 'course_name', 'whatsapp_number']
         for k in keys:
@@ -97,14 +97,14 @@ def run_tests():
     except Exception as e:
         results.append(("TC07", "Student Search Dropdown Structure", "FAIL", str(e)))
 
-    # Clean up IGP005 if already created in earlier run so TC08 succeeds
+    # Clean up IGT005 if already created in earlier run so TC08 succeeds
     cursor = connection.cursor()
-    cursor.execute("DELETE FROM certificate WHERE register_id = 'IGP005' OR certificate_id = 'IGP005'")
+    cursor.execute("DELETE FROM certificate WHERE register_id = 'IGT005' OR certificate_id = 'IGT005'")
 
     # TC08: Certificate Generation API
     try:
         payload = {
-            "register_id": "IGP005",
+            "register_id": "IGT005",
             "student_name": "Naveen K",
             "course_name": "Node.js Complete Masterclass",
             "joining_date": "2024-01-15",
@@ -117,14 +117,14 @@ def run_tests():
         }
         r = requests.post(f"{BASE_URL}/generate_certificate", json=payload)
         assert r.status_code in [200, 201]
-        results.append(("TC08", "Certificate Generation API", "PASS", f"Generated certificate for IGP005"))
+        results.append(("TC08", "Certificate Generation API", "PASS", f"Generated certificate for IGT005"))
     except Exception as e:
         results.append(("TC08", "Certificate Generation API", "FAIL", str(e)))
 
     # TC09: Duplicate Certificate Prevention Check
     try:
         payload = {
-            "register_id": "IGP005",
+            "register_id": "IGT005",
             "student_name": "Naveen K",
             "course_name": "Node.js Complete Masterclass",
             "whatsapp_number": "919876543214"
@@ -137,7 +137,7 @@ def run_tests():
 
     # TC10: JPG Image File Generation
     try:
-        r = requests.get(f"{BASE_URL}/download_certificate_jpg?register_id=IGP005")
+        r = requests.get(f"{BASE_URL}/download_certificate_jpg?register_id=IGT005")
         assert r.status_code == 200
         assert r.content[:3] == b'\xff\xd8\xff' # JPEG header magic bytes
         results.append(("TC10", "Automatic JPG Image Storage", "PASS", "Valid JPEG binary generated and stored"))
@@ -146,7 +146,7 @@ def run_tests():
 
     # TC11: Certificate Edit - Superadmin Permission
     try:
-        payload = {"register_id": "IGP005", "student_name": "Naveen Kumar Updated"}
+        payload = {"register_id": "IGT005", "student_name": "Naveen Kumar Updated"}
         r = requests.put(f"{BASE_URL}/update_certificate", json=payload)
         assert r.status_code == 200
         results.append(("TC11", "Edit Certificate - Superadmin Permission", "PASS", "Update succeeded with 200 OK"))
@@ -155,7 +155,7 @@ def run_tests():
 
     # TC12: Certificate Edit - Admin Permission
     try:
-        payload = {"register_id": "IGP005", "student_name": "Naveen K (Admin Edit)"}
+        payload = {"register_id": "IGT005", "student_name": "Naveen K (Admin Edit)"}
         r = requests.put(f"{BASE_URL}/update_certificate", json=payload)
         assert r.status_code == 200
         results.append(("TC12", "Edit Certificate - Admin Permission", "PASS", "Update succeeded with 200 OK"))
@@ -164,7 +164,7 @@ def run_tests():
 
     # TC13: Certificate Edit - Trainer Permission
     try:
-        payload = {"register_id": "IGP005", "student_name": "Naveen K (Trainer Edit)"}
+        payload = {"register_id": "IGT005", "student_name": "Naveen K (Trainer Edit)"}
         r = requests.put(f"{BASE_URL}/update_certificate", json=payload)
         assert r.status_code == 200
         results.append(("TC13", "Edit Certificate - Trainer Permission", "PASS", "Update succeeded with 200 OK"))
@@ -174,7 +174,7 @@ def run_tests():
     # TC14: Field Validation & Persistence
     try:
         r = requests.get(f"{BASE_URL}/list_certificates")
-        cert = [c for c in r.json() if c.get('register_id') == 'IGP005'][0]
+        cert = [c for c in r.json() if c.get('register_id') == 'IGT005'][0]
         assert cert['student_name'] == "Naveen K (Trainer Edit)"
         results.append(("TC14", "Field Validation & Persistence", "PASS", "Field changes successfully persisted in database"))
     except Exception as e:
@@ -182,7 +182,7 @@ def run_tests():
 
     # TC15: Image Regeneration on Edit
     try:
-        r = requests.get(f"{BASE_URL}/download_certificate_jpg?register_id=IGP005")
+        r = requests.get(f"{BASE_URL}/download_certificate_jpg?register_id=IGT005")
         assert r.status_code == 200
         assert r.content[:3] == b'\xff\xd8\xff'
         results.append(("TC15", "JPG Image Regeneration on Edit", "PASS", "JPG image successfully regenerated"))
@@ -191,7 +191,7 @@ def run_tests():
 
     # TC16: Certificate Download API
     try:
-        r = requests.get(f"{BASE_URL}/download_certificate_jpg?register_id=IGP005")
+        r = requests.get(f"{BASE_URL}/download_certificate_jpg?register_id=IGT005")
         assert r.status_code == 200
         assert r.headers.get('Content-Type') == 'image/jpeg'
         results.append(("TC16", "Certificate Download API", "PASS", "Content-Type is image/jpeg"))
@@ -200,7 +200,7 @@ def run_tests():
 
     # TC17: Download JPG Format Verification
     try:
-        r = requests.get(f"{BASE_URL}/download_certificate_jpg?register_id=IGP005")
+        r = requests.get(f"{BASE_URL}/download_certificate_jpg?register_id=IGT005")
         assert r.content.startswith(b'\xff\xd8\xff')
         results.append(("TC17", "Download JPG Magic Byte Check", "PASS", "Verified exact JPG file signature"))
     except Exception as e:
@@ -223,12 +223,12 @@ def run_tests():
 
     # TC20: WhatsApp Share Message Content
     try:
-        cert_id = "IGP005"
+        cert_id = "IGT005"
         student_name = "Naveen K"
         course_name = "Node.js Complete Masterclass"
         expected_msg = f"Hello {student_name},\n\nYour {course_name} course certificate has been generated.\n\nCertificate ID: {cert_id}\n\nPlease check your certificate."
         assert "Hello Naveen K" in expected_msg
-        assert "Certificate ID: IGP005" in expected_msg
+        assert "Certificate ID: IGT005" in expected_msg
         results.append(("TC20", "WhatsApp Share Message Content", "PASS", "Exact message template matches requirements"))
     except Exception as e:
         results.append(("TC20", "WhatsApp Share Message Content", "FAIL", str(e)))
@@ -241,7 +241,7 @@ def run_tests():
 
     # TC22: Certificate Verification API
     try:
-        r_v = requests.get("http://127.0.0.1:8000/certificate/render_certificate_image?register_id=IGP004")
+        r_v = requests.get(f"{BASE_URL}/download_certificate_jpg?register_id=IGT004")
         assert r_v.status_code == 200
         assert r_v.content.startswith(b'\xff\xd8\xff')
         results.append(("TC22", "Certificate Verification / Render API", "PASS", "Render API returned valid JPEG image binary"))
@@ -270,19 +270,43 @@ def run_tests():
     except Exception as e:
         results.append(("TC25", "Complete End-to-End Certificate Flow", "FAIL", str(e)))
 
+    # TC26: Delete Certificate API
+    try:
+        # Generate temporary cert for deletion
+        del_payload = {
+            "register_id": "IGT_TEST_DEL",
+            "student_name": "Test Delete Student",
+            "course_name": "Python Basic",
+            "whatsapp_number": "919000000000"
+        }
+        r_gen = requests.post(f"{BASE_URL}/generate_certificate", json=del_payload)
+        assert r_gen.status_code in [200, 201]
+
+        # Call delete API
+        r_del = requests.post(f"{BASE_URL}/delete_certificate", json={"certificate_id": "IGT_TEST_DEL"})
+        assert r_del.status_code == 200
+        assert "deleted" in r_del.json().get('message', '').lower()
+
+        # Confirm deleted from DB
+        from certificate_application.models import Certificate
+        assert not Certificate.objects.filter(register_id='IGT_TEST_DEL').exists()
+        results.append(("TC26", "Delete Certificate API", "PASS", "Successfully deleted certificate via API"))
+    except Exception as e:
+        results.append(("TC26", "Delete Certificate API", "FAIL", str(e)))
+
     # Restore sample certificates so frontend table remains populated
     try:
         from certificate_application.models import Certificate
-        if not Certificate.objects.filter(register_id='IGP001').exists():
+        if not Certificate.objects.filter(register_id='IGT001').exists():
             Certificate.objects.create(
-                register_id='IGP001', certificate_id='CERT-2026-IGP001',
-                verification_token='token-IGP001', student_name='Priya S',
+                register_id='IGT001', certificate_id='CERT-2026-IGT001',
+                verification_token='token-IGT001', student_name='Priya S',
                 course_name='Java Programming', whatsapp_number='917010835939'
             )
-        if not Certificate.objects.filter(register_id='IGP005').exists():
+        if not Certificate.objects.filter(register_id='IGT005').exists():
             Certificate.objects.create(
-                register_id='IGP005', certificate_id='CERT-2026-IGP005',
-                verification_token='token-IGP005', student_name='Naveen K',
+                register_id='IGT005', certificate_id='CERT-2026-IGT005',
+                verification_token='token-IGT005', student_name='Naveen K',
                 course_name='Node.js Masterclass', whatsapp_number='919876543214'
             )
     except Exception:

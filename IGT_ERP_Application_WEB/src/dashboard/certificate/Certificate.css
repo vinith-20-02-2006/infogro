@@ -178,6 +178,16 @@ ACTION BUTTONS
     color: #fff;
 }
 
+.certificate-page .btn-delete {
+    background: #FEE2E2;
+    color: #DC2626;
+}
+
+.certificate-page .btn-delete:hover {
+    background: #DC2626;
+    color: #fff;
+}
+
 /*==================================================
 PAGINATION
 ==================================================*/

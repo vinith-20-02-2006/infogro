@@ -19,5 +19,7 @@ urlpatterns += [
     path('search_eligible_students', Certificate_views.SearchEligibleStudents.as_view(), name='search_eligible_students'),
     path('generate_certificate', Certificate_views.GenerateCertificate.as_view(), name='generate_certificate'),
     path('update_certificate', Certificate_views.UpdateCertificate.as_view(), name='update_certificate'),
+    path('delete_certificate', Certificate_views.DeleteCertificate.as_view(), name='delete_certificate'),
     path('download_certificate_jpg', Certificate_views.DownloadCertificateJPG.as_view(), name='download_certificate_jpg'),
+    path('render_certificate_image', Certificate_views.RenderCertificateImage.as_view(), name='render_certificate_image'),
 ]

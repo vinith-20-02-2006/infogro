@@ -162,7 +162,7 @@ function Addcertificate({ onBack, onSuccess, editData }) {
             type="text"
             className="form-control form-control-lg bg-white"
             style={{ borderRadius: "10px", border: "1px solid #CBD5E1" }}
-            placeholder={isEdit ? "Student Selected for Editing" : "Type Student Name, Register ID, Email, or WhatsApp Number (e.g. Priya or IGP001)..."}
+            placeholder={isEdit ? "Student Selected for Editing" : "Type Student Name, Register ID, Email, or WhatsApp Number (e.g. Priya or IGT001)..."}
             value={searchQuery}
             onChange={(e) => !isEdit && handleSearchStudents(e.target.value)}
             readOnly={isEdit}

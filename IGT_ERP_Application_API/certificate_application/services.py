@@ -64,7 +64,7 @@ class Certificate_services:
                         issue_date_val = item.get('issue_date')
                         issue_date_str = issue_date_val.strftime("%d/%m/%Y") if hasattr(issue_date_val, 'strftime') else (str(issue_date_val) if issue_date_val else datetime.now().strftime("%d/%m/%Y"))
                         reg_id = item.get('register_id') or item.get('certificate_id')
-                        img_url = f"/certificate/render_certificate_image?register_id={reg_id}"
+                        img_url = f"/adm/render_certificate_image?register_id={reg_id}"
 
                         results.append({
                             "certificate_id": item.get('certificate_id'),
@@ -93,7 +93,7 @@ class Certificate_services:
         for cert in certs:
             effective_course_name = cert.get_effective_course_name()
             issue_date_str = cert.issue_date.strftime("%d/%m/%Y") if cert.issue_date else datetime.now().strftime("%d/%m/%Y")
-            img_url = f"/certificate/render_certificate_image?register_id={cert.register_id or cert.certificate_id}"
+            img_url = f"/adm/render_certificate_image?register_id={cert.register_id or cert.certificate_id}"
 
             results.append({
                 "certificate_id": cert.certificate_id,
@@ -153,7 +153,12 @@ class Certificate_services:
 
         results = []
         for idx, item in enumerate(qs, start=1):
-            reg_id = item.register_id or f"IGP{item.enrollment_id:03d}"
+            reg_id = item.register_id
+            if reg_id and reg_id.startswith("IGP"):
+                reg_id = reg_id.replace("IGP", "IGT")
+            elif not reg_id:
+                reg_id = f"IGT{item.enrollment_id:03d}"
+
             name = item.student_name
             if not name and item.user:
                 full_user_name = f"{item.user.first_name} {item.user.last_name}".strip()
@@ -195,7 +200,7 @@ class Certificate_services:
             for idx, u in enumerate(users, start=len(results) + 1):
                 full_name = f"{u.first_name} {u.last_name}".strip() or u.username
                 if full_name.lower() not in existing_names:
-                    reg_id = f"IGP{u.id:03d}"
+                    reg_id = f"IGT{u.id:03d}"
                     if reg_id not in existing_reg_ids:
                         results.append({
                             "enrollment_id": u.id,
@@ -309,7 +314,7 @@ class Certificate_services:
     @staticmethod
     def generate_certificate_jpg(student_name, course_name, issue_date_str, register_id):
         """Returns the dynamic in-memory render endpoint URL for backward compatibility."""
-        return f"/certificate/render_certificate_image?register_id={register_id}"
+        return f"/adm/render_certificate_image?register_id={register_id}"
 
     @staticmethod
     def generate_certificate(register_id, student_name, course_name, joining_date=None, issue_date=None,
@@ -324,7 +329,9 @@ class Certificate_services:
             raise ValueError("Student is NOT eligible for certificate. Both Assignment and Assessment must be Completed or Passed.")
 
         if not register_id:
-            register_id = f"IGP{Certificate.objects.count() + 1:03d}"
+            register_id = f"IGT{Certificate.objects.count() + 1:03d}"
+        elif str(register_id).startswith("IGP"):
+            register_id = str(register_id).replace("IGP", "IGT")
 
         if not whatsapp_number and register_id:
             enr = Enrollment.objects.filter(register_id=register_id).first()
@@ -356,7 +363,7 @@ class Certificate_services:
             course_obj = Course.objects.filter(Course_name__iexact=str(course_name).strip()).first()
 
         effective_course_name = course_obj.Course_name if course_obj else (course_name or "Course")
-        img_url = f"/certificate/render_certificate_image?register_id={register_id}"
+        img_url = f"/adm/render_certificate_image?register_id={register_id}"
 
         # Prevent duplicate certificate creation
         existing_cert = Certificate.objects.filter(
@@ -428,7 +435,7 @@ class Certificate_services:
 
         effective_course_name = cert.get_effective_course_name()
         issue_date_str = cert.issue_date.strftime("%d/%m/%Y") if cert.issue_date else datetime.now().strftime("%d/%m/%Y")
-        img_url = f"/certificate/render_certificate_image?register_id={cert.register_id or cert.certificate_id}"
+        img_url = f"/adm/render_certificate_image?register_id={cert.register_id or cert.certificate_id}"
 
         cert.certificate_image = img_url
         cert.save()
@@ -454,6 +461,25 @@ class Certificate_services:
         }
 
     @staticmethod
+    def delete_certificate(certificate_id):
+        """Deletes a certificate record from database and cleans up generated local image."""
+        cert = Certificate.objects.filter(models.Q(certificate_id=certificate_id) | models.Q(register_id=certificate_id)).first()
+        if not cert:
+            raise ValueError(f"Certificate with ID '{certificate_id}' not found.")
+        
+        try:
+            cert_dir = os.path.join(settings.MEDIA_ROOT, 'certificates')
+            file_path = os.path.join(cert_dir, f"certificate_{cert.register_id or cert.certificate_id}.jpg")
+            if os.path.exists(file_path):
+                os.remove(file_path)
+        except Exception:
+            pass
+
+        deleted_id = cert.certificate_id
+        cert.delete()
+        return f"Certificate '{deleted_id}' deleted successfully."
+
+    @staticmethod
     def on_course_name_updated(course_id, new_course_name):
         """
         Triggered when a Course's name is updated in the system.
@@ -462,6 +488,6 @@ class Certificate_services:
         certs = Certificate.objects.filter(models.Q(course_id=course_id) | models.Q(course_name__iexact=new_course_name))
         for cert in certs:
             cert.course_name = new_course_name
-            cert.certificate_image = f"/certificate/render_certificate_image?register_id={cert.register_id or cert.certificate_id}"
+            cert.certificate_image = f"/adm/render_certificate_image?register_id={cert.register_id or cert.certificate_id}"
             cert.save()
 

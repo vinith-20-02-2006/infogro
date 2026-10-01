@@ -42,6 +42,7 @@ function ProtectedRoutes() {
         <Route element={<PrivateRoute/>}>
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/course" element={<Course />} />
+          <Route path="/adm" element={<Certificate />} />
           <Route path="/certificate" element={<Certificate />} />
         </Route>
       </Routes>
