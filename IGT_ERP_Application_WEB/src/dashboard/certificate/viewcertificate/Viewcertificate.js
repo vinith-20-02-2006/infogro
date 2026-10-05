@@ -22,51 +22,29 @@ function Viewcertificate({ toggle, cert }) {
   const handleWhatsApp = async () => {
     setWaStatus("loading");
 
-    let rawPhone = cert.whatsapp_number || cert.phone_number;
-    if (!rawPhone || !String(rawPhone).trim()) {
-      setWaStatus("error");
-      alert(`Student ${cert.student_name || 'Student'} does not have a valid registered WhatsApp number in the database.`);
-      setTimeout(() => setWaStatus("idle"), 3000);
-      return;
-    }
-
-    let cleanPhone = String(rawPhone).replace(/[^0-9]/g, '');
-    if (!cleanPhone) {
-      setWaStatus("error");
-      alert("Valid registered WhatsApp number is required.");
-      setTimeout(() => setWaStatus("idle"), 3000);
-      return;
-    }
-    if (cleanPhone.length === 10) {
-      cleanPhone = "91" + cleanPhone;
-    }
-
-    const certId = cert.register_id || cert.certificate_id;
-    const recipient = cert.student_name || "Student";
-    const course = cert.course_name || "Course";
-    const downloadUrl = getDownloadUrl(certId);
-
     try {
-      const response = await fetch(downloadUrl);
-      const blob = await response.blob();
-      if (navigator.clipboard && window.ClipboardItem) {
-        try {
-          await navigator.clipboard.write([
-            new ClipboardItem({ "image/jpeg": blob })
-          ]);
-        } catch (clipErr) {
-          console.log("Clipboard write image failed:", clipErr);
-        }
+      const response = await fetch(`${API_URL}/adm/send_certificate_whatsapp`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ certificate_id: cert.certificate_id || cert.register_id })
+      });
+
+      const res = await response.json();
+
+      if (response.ok && res.success !== false) {
+        alert(res.message || "Certificate sent successfully");
+        setWaStatus("sent");
+      } else {
+        alert(res?.message || "Failed to send certificate via WhatsApp.");
+        setWaStatus("error");
       }
     } catch (err) {
-      console.log("Fetch certificate image blob failed:", err);
+      console.error("WhatsApp send error:", err);
+      alert(err.message || "Failed to send certificate via WhatsApp.");
+      setWaStatus("error");
+    } finally {
+      setTimeout(() => setWaStatus("idle"), 3000);
     }
-
-    const message = `🎓 *CERTIFICATE OF COMPLETION (JPG FORMAT)*\n\nStudent Name: *${recipient}*\nCourse: *${course}*\nCertificate ID: *${certId}*\n\nDirect JPG Certificate Image Link:\n${downloadUrl}\n\n_(Press Ctrl+V in WhatsApp to paste the JPG image directly!)_`;
-    window.open(`https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`, "_blank");
-
-    setWaStatus("sent");
-    setTimeout(() => setWaStatus("idle"), 4000);
   };
 
   return (

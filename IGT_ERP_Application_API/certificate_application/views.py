@@ -280,4 +280,42 @@ class AutoGenerateCertificates(APIView):
         return self.post(request)
 
 
+# ==========================================
+# AUTOMATED WHATSAPP CERTIFICATE SENDING
+# ==========================================
+class SendCertificateWhatsApp(APIView):
+    permission_classes = [AllowAny]
+    authentication_classes = []
+
+    class InputSerializer(serializers.Serializer):
+        certificate_id = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+        register_id = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+
+    def post(self, request):
+        target_id = None
+        if isinstance(request.data, dict):
+            target_id = request.data.get('certificate_id') or request.data.get('register_id')
+        elif isinstance(request.data, str):
+            target_id = request.data
+
+        if not target_id:
+            target_id = request.GET.get('certificate_id') or request.GET.get('register_id')
+
+        if not target_id:
+            return Response({"success": False, "message": "certificate_id or register_id is required."}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            result = Certificate_services.send_certificate_whatsapp(certificate_id=target_id)
+            return Response(result, status=status.HTTP_200_OK)
+        except ValueError as ve:
+            return Response({"success": False, "message": str(ve)}, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            logger.exception("Automated WhatsApp sending failed")
+            return Response({"success": False, "message": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+    def get(self, request):
+        return self.post(request)
+
+
+
 

@@ -192,57 +192,30 @@ function Certificate() {
         const certKey = cert.register_id || cert.certificate_id;
         setWhatsappStatusMap((prev) => ({ ...prev, [certKey]: "loading" }));
 
-        let rawPhone = cert.whatsapp_number || cert.phone_number;
-        if (!rawPhone || !String(rawPhone).trim()) {
-            setWhatsappStatusMap((prev) => ({ ...prev, [certKey]: "error" }));
-            alert(`Student ${cert.student_name || 'Student'} does not have a registered WhatsApp number in the database.`);
-            setTimeout(() => {
-                setWhatsappStatusMap((prev) => ({ ...prev, [certKey]: null }));
-            }, 3000);
-            return;
-        }
-
-        let cleanPhone = String(rawPhone).replace(/[^0-9]/g, '');
-        if (!cleanPhone) {
-            setWhatsappStatusMap((prev) => ({ ...prev, [certKey]: "error" }));
-            alert("Valid registered WhatsApp number is required.");
-            setTimeout(() => {
-                setWhatsappStatusMap((prev) => ({ ...prev, [certKey]: null }));
-            }, 3000);
-            return;
-        }
-        if (cleanPhone.length === 10) {
-            cleanPhone = "91" + cleanPhone;
-        }
-
-        const certId = cert.register_id || cert.certificate_id;
-        const recipient = cert.student_name || "Student";
-        const course = cert.course_name || "Course";
-        const downloadUrl = getDownloadUrl(certId);
-
         try {
-            const response = await fetch(downloadUrl);
-            const blob = await response.blob();
-            if (navigator.clipboard && window.ClipboardItem) {
-                try {
-                    await navigator.clipboard.write([
-                        new ClipboardItem({ "image/jpeg": blob })
-                    ]);
-                } catch (clipErr) {
-                    console.log("Clipboard write image failed:", clipErr);
-                }
+            const res = await insert(
+                { certificate_id: cert.certificate_id || cert.register_id },
+                "send_certificate_whatsapp"
+            );
+
+            console.log("Automated WhatsApp send response:", res);
+
+            if (res && res.success !== false) {
+                alert(res.message || "Certificate sent successfully");
+                setWhatsappStatusMap((prev) => ({ ...prev, [certKey]: "sent" }));
+            } else {
+                alert(res?.message || "Failed to send certificate via WhatsApp.");
+                setWhatsappStatusMap((prev) => ({ ...prev, [certKey]: "error" }));
             }
         } catch (err) {
-            console.log("Fetch certificate image blob failed:", err);
+            console.error("WhatsApp send error:", err);
+            alert(err.message || "Failed to send certificate via WhatsApp.");
+            setWhatsappStatusMap((prev) => ({ ...prev, [certKey]: "error" }));
+        } finally {
+            setTimeout(() => {
+                setWhatsappStatusMap((prev) => ({ ...prev, [certKey]: null }));
+            }, 3000);
         }
-
-        const message = `🎓 *CERTIFICATE OF COMPLETION (JPG FORMAT)*\n\nStudent Name: *${recipient}*\nCourse: *${course}*\nCertificate ID: *${certId}*\n\nDirect JPG Certificate Image Link:\n${downloadUrl}\n\n_(Press Ctrl+V in WhatsApp to paste the JPG image directly!)_`;
-        window.open(`https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`, "_blank");
-
-        setWhatsappStatusMap((prev) => ({ ...prev, [certKey]: "sent" }));
-        setTimeout(() => {
-            setWhatsappStatusMap((prev) => ({ ...prev, [certKey]: null }));
-        }, 4000);
     };
 
     const handleDownloadCertificate = (cert) => {

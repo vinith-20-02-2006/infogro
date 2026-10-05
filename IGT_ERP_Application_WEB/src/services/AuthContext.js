@@ -146,17 +146,14 @@ export const AuthProvider = ({ children }) => {
         // If Django returns 400 / 401 / 500 etc.
         if (!response.ok) {
 
-            // Create an error object
-            const error = new Error(
-                'Failed to create course'
-            );
+            // Create an error object with actual message from backend response
+            const errorMsg = responseData?.message || responseData?.error || 'Operation failed';
+            const error = new Error(errorMsg);
 
             // Store Django response inside error
             error.responseData = responseData;
             error.status = response.status;
 
-            // IMPORTANT
-            // Send error back to Addcourse.jsx
             throw error;
         }
 

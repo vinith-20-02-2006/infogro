@@ -196,3 +196,10 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 CORS_ALLOW_ALL_ORIGINS = True
 
+# WhatsApp API Provider Configuration (UltraMsg Instance #193506)
+import os
+WHATSAPP_API_URL = os.environ.get('WHATSAPP_API_URL', 'https://api.ultramsg.com/instance193506/messages/image')
+WHATSAPP_API_TOKEN = os.environ.get('WHATSAPP_API_TOKEN', '1yikjnf8quipj0jb')
+
+
+

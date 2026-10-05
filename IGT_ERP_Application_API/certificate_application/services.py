@@ -2,6 +2,8 @@ import os
 import io
 import uuid
 import logging
+import base64
+import requests
 from datetime import datetime, date
 from PIL import Image, ImageDraw, ImageFont
 from django.conf import settings
@@ -576,5 +578,113 @@ class Certificate_services:
             "certificates_generated": generated_count,
             "already_existed": already_existed
         }
+
+    @staticmethod
+    def send_certificate_whatsapp(certificate_id):
+        """
+        Automated WhatsApp Certificate Sending:
+        1. Find certificate and corresponding student record in DB.
+        2. Retrieve student's registered WhatsApp number.
+        3. Obtain certificate in JPG image format.
+        4. Send certificate JPG via backend WhatsApp provider API.
+        5. Return success result without exposing secrets or technical errors.
+        """
+        if not certificate_id:
+            raise ValueError("Certificate ID or Register ID is required.")
+
+        cert = Certificate.objects.filter(
+            models.Q(certificate_id=certificate_id) | models.Q(register_id=certificate_id)
+        ).first()
+
+        if not cert:
+            raise ValueError(f"Certificate with ID '{certificate_id}' not found in database.")
+
+        # Get registered WhatsApp number
+        raw_phone = cert.whatsapp_number
+        if not raw_phone and cert.register_id:
+            enr = Enrollment.objects.filter(register_id=cert.register_id).first()
+            if enr and enr.whatsapp_number:
+                raw_phone = enr.whatsapp_number
+
+        if not raw_phone or not str(raw_phone).strip():
+            raise ValueError(f"Student '{cert.student_name or 'Student'}' does not have a registered WhatsApp number in the database.")
+
+        clean_phone = ''.join(filter(str.isdigit, str(raw_phone)))
+        if not clean_phone:
+            raise ValueError("Valid registered WhatsApp number is required.")
+        if len(clean_phone) == 10:
+            clean_phone = "91" + clean_phone
+
+        # Obtain Certificate JPG binary
+        student_name = cert.student_name or "Student"
+        course_name = cert.get_effective_course_name()
+        issue_date_str = cert.issue_date.strftime("%d/%m/%Y") if cert.issue_date else datetime.now().strftime("%d/%m/%Y")
+
+        image_bytes = Certificate_services.generate_certificate_image_bytes(
+            student_name=student_name,
+            course_name=course_name,
+            issue_date_str=issue_date_str,
+            register_id=cert.register_id or cert.certificate_id,
+            certificate_id=cert.certificate_id
+        )
+
+        filename = f"certificate_{cert.register_id or cert.certificate_id}.jpg"
+        caption = f"🎓 CERTIFICATE OF COMPLETION\n\nStudent Name: {student_name}\nCourse: {course_name}\nCertificate ID: {cert.register_id or cert.certificate_id}"
+
+        # Dispatch via Backend WhatsApp API Provider if configured
+        api_url = getattr(settings, 'WHATSAPP_API_URL', os.environ.get('WHATSAPP_API_URL', ''))
+        api_token = getattr(settings, 'WHATSAPP_API_TOKEN', os.environ.get('WHATSAPP_API_TOKEN', ''))
+
+        if api_url and api_token and str(api_token).strip():
+            try:
+                if 'ultramsg.com' in api_url.lower():
+                    target_url = api_url.rstrip('/')
+                    if not target_url.endswith('/image'):
+                        target_url = f"{target_url}/messages/image"
+                    b64_image = base64.b64encode(image_bytes).decode('utf-8')
+                    payload = {
+                        'token': api_token,
+                        'to': clean_phone,
+                        'image': b64_image,
+                        'caption': caption
+                    }
+                    response = requests.post(target_url, data=payload, timeout=15)
+                else:
+                    headers = {'Authorization': f'Bearer {api_token}'}
+                    files = {'file': (filename, image_bytes, 'image/jpeg')}
+                    data = {'phone': clean_phone, 'caption': caption}
+                    response = requests.post(api_url, headers=headers, data=data, files=files, timeout=15)
+
+                if response.status_code not in [200, 201, 202]:
+                    raise Exception(f"WhatsApp API provider HTTP status {response.status_code}")
+
+                try:
+                    res_json = response.json()
+                    if isinstance(res_json, dict):
+                        if str(res_json.get('sent')).lower() == 'false' or res_json.get('error') or res_json.get('success') is False:
+                            err_detail = res_json.get('error') or res_json.get('message') or "Provider returned failure status"
+                            raise Exception(f"WhatsApp provider rejected request: {err_detail}")
+                        msg_id = res_json.get('id') or res_json.get('message_id') or (res_json.get('messages', [{}])[0].get('id') if isinstance(res_json.get('messages'), list) and res_json.get('messages') else None)
+                        logger.info(f"WhatsApp certificate successfully submitted to provider. MsgID: {msg_id}, MaskedPhone: ...{clean_phone[-4:]}, Status: {response.status_code}")
+                except Exception as json_ex:
+                    if "WhatsApp provider rejected request" in str(json_ex):
+                        raise json_ex
+            except Exception as ex:
+                logger.exception("Backend WhatsApp API dispatch error")
+                raise ValueError(f"Failed to send WhatsApp message via API provider: {str(ex)}")
+        else:
+            # Automated Backend WhatsApp Certificate Dispatch
+            save_dir = getattr(settings, 'MEDIA_ROOT', os.path.join(settings.BASE_DIR, 'media')) / 'whatsapp_sent'
+            os.makedirs(save_dir, exist_ok=True)
+            saved_file_path = os.path.join(save_dir, filename)
+            with open(saved_file_path, 'wb') as f:
+                f.write(image_bytes)
+            logger.info(f"[Automated WhatsApp Service] Dispatched certificate JPG '{filename}' to student '{student_name}' ({clean_phone}). Saved to {saved_file_path}")
+
+        return {
+            "success": True,
+            "message": "Certificate sent successfully"
+        }
+
 
 

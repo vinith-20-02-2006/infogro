@@ -10,6 +10,7 @@ urlpatterns = [
     path('download_certificate_jpg', views.DownloadCertificateJPG.as_view(), name='download_certificate_jpg'),
     path('render_certificate_image', views.RenderCertificateImage.as_view(), name='render_certificate_image'),
     path('auto_generate_certificates', views.AutoGenerateCertificates.as_view(), name='auto_generate_certificates'),
+    path('send_certificate_whatsapp', views.SendCertificateWhatsApp.as_view(), name='send_certificate_whatsapp'),
 ]
 
 

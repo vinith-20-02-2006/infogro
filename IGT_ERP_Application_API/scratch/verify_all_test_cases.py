@@ -241,11 +241,27 @@ def run_tests():
     except Exception as e:
         results.append(("TC20", "WhatsApp Share Message Content", "FAIL", str(e)))
 
-    # TC21: Independent WhatsApp Action
+    # TC21: Automated WhatsApp Certificate Sending API
     try:
-        results.append(("TC21", "Independent WhatsApp Action", "PASS", "WhatsApp share opens link with pre-filled message; file download trigger removed"))
+        r_wa = requests.post(f"{BASE_URL}/send_certificate_whatsapp", json={"certificate_id": "IGT005"})
+        assert r_wa.status_code == 200
+        res_wa = r_wa.json()
+        assert res_wa.get('success') is True
+        assert res_wa.get('message') == "Certificate sent successfully"
+        results.append(("TC21", "Automated WhatsApp Sending API", "PASS", "Backend automated WhatsApp dispatch succeeded"))
     except Exception as e:
-        results.append(("TC21", "Independent WhatsApp Action", "FAIL", str(e)))
+        results.append(("TC21", "Automated WhatsApp Sending API", "FAIL", str(e)))
+
+    # TC28: WhatsApp Error Handling
+    try:
+        r_err = requests.post(f"{BASE_URL}/send_certificate_whatsapp", json={"certificate_id": "NON_EXISTENT_999"})
+        assert r_err.status_code == 400
+        res_err = r_err.json()
+        assert res_err.get('success') is False
+        results.append(("TC28", "WhatsApp Error Handling", "PASS", "Missing certificate returned appropriate backend error response"))
+    except Exception as e:
+        results.append(("TC28", "WhatsApp Error Handling", "FAIL", str(e)))
+
 
     # TC22: Certificate Verification API
     try:
