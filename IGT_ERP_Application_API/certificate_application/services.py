@@ -1,6 +1,7 @@
 import os
 import io
 import uuid
+import logging
 from datetime import datetime, date
 from PIL import Image, ImageDraw, ImageFont
 from django.conf import settings
@@ -9,6 +10,8 @@ from django.contrib.auth.models import User
 from .models import Certificate
 from admin_application.models.Enrollment import Enrollment
 from admin_application.models.Course import Course
+
+logger = logging.getLogger(__name__)
 
 
 class Certificate_services:
@@ -490,4 +493,88 @@ class Certificate_services:
             cert.course_name = new_course_name
             cert.certificate_image = f"/adm/render_certificate_image?register_id={cert.register_id or cert.certificate_id}"
             cert.save()
+
+    @staticmethod
+    def auto_generate_certificates():
+        """
+        Auto Generate Certificates for all eligible students:
+        1. assignment_status in ['Completed', 'Passed', 'completed', 'passed', 'COMPLETED', 'PASSED']
+        2. assessment_status in ['Completed', 'Passed', 'completed', 'passed', 'COMPLETED', 'PASSED']
+        3. Skip if certificate already exists (idempotent, no duplicate creation).
+        """
+        valid_statuses = ['Completed', 'Passed', 'completed', 'passed', 'COMPLETED', 'PASSED']
+
+        eligible_enrollments = Enrollment.objects.filter(
+            assignment_status__in=valid_statuses,
+            assessment_status__in=valid_statuses
+        )
+
+        eligible_count = eligible_enrollments.count()
+        if eligible_count == 0:
+            return {
+                "message": "No eligible students found for certificate generation.",
+                "eligible_students": 0,
+                "certificates_generated": 0,
+                "already_existed": 0
+            }
+
+        generated_count = 0
+        already_existed = 0
+
+        for enr in eligible_enrollments:
+            reg_id = enr.register_id
+            if reg_id and reg_id.startswith("IGP"):
+                reg_id = reg_id.replace("IGP", "IGT")
+            elif not reg_id:
+                reg_id = f"IGT{enr.enrollment_id:03d}"
+
+            name = enr.student_name
+            if not name and enr.user:
+                full_user_name = f"{enr.user.first_name} {enr.user.last_name}".strip()
+                name = full_user_name if full_user_name else enr.user.username
+            if not name:
+                name = f"Student {enr.enrollment_id}"
+
+            course_name = enr.course.Course_name if enr.course else "Course"
+
+            # Check duplicate certificate
+            existing_cert = Certificate.objects.filter(
+                models.Q(register_id=reg_id) |
+                (models.Q(student_name__iexact=name) & models.Q(course_name__iexact=course_name)) |
+                (models.Q(user=enr.user) if enr.user else models.Q(pk=None))
+            ).first()
+
+            if existing_cert:
+                already_existed += 1
+                continue
+
+            try:
+                Certificate_services.generate_certificate(
+                    register_id=reg_id,
+                    student_name=name,
+                    course_name=course_name,
+                    joining_date=enr.joining_date,
+                    issue_date=date.today(),
+                    assignment_status=enr.assignment_status or 'Completed',
+                    assessment_status=enr.assessment_status or 'Completed',
+                    assignment_score=enr.assignment_score or 90.0,
+                    assessment_score=enr.assessment_score or 95.0,
+                    course_id=enr.course.Course_id if enr.course else None,
+                    whatsapp_number=enr.whatsapp_number
+                )
+                generated_count += 1
+            except ValueError:
+                already_existed += 1
+            except Exception as e:
+                logger.exception(f"Error auto-generating certificate for enrollment {enr.enrollment_id}")
+
+        msg = f"Auto certificate generation completed.\n\nEligible students: {eligible_count}\nCertificates generated: {generated_count}\nAlready existed: {already_existed}"
+
+        return {
+            "message": msg,
+            "eligible_students": eligible_count,
+            "certificates_generated": generated_count,
+            "already_existed": already_existed
+        }
+
 

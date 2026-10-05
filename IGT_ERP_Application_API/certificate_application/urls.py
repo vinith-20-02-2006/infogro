@@ -9,6 +9,7 @@ urlpatterns = [
     path('delete_certificate', views.DeleteCertificate.as_view(), name='delete_certificate'),
     path('download_certificate_jpg', views.DownloadCertificateJPG.as_view(), name='download_certificate_jpg'),
     path('render_certificate_image', views.RenderCertificateImage.as_view(), name='render_certificate_image'),
+    path('auto_generate_certificates', views.AutoGenerateCertificates.as_view(), name='auto_generate_certificates'),
 ]
 
 

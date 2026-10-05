@@ -22,4 +22,5 @@ urlpatterns += [
     path('delete_certificate', Certificate_views.DeleteCertificate.as_view(), name='delete_certificate'),
     path('download_certificate_jpg', Certificate_views.DownloadCertificateJPG.as_view(), name='download_certificate_jpg'),
     path('render_certificate_image', Certificate_views.RenderCertificateImage.as_view(), name='render_certificate_image'),
+    path('auto_generate_certificates', Certificate_views.AutoGenerateCertificates.as_view(), name='auto_generate_certificates'),
 ]

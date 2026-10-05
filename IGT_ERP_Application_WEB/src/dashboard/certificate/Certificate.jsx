@@ -28,9 +28,11 @@ function Certificate() {
     const [certificates, setCertificates] = useState([]);
     const [selectedCert, setSelectedCert] = useState(null);
     const [loading, setLoading] = useState(false);
+    const [autoGenerating, setAutoGenerating] = useState(false);
     const [whatsappStatusMap, setWhatsappStatusMap] = useState({});
 
-    const { getData, API_URL } = useContext(AuthContext);
+    const { getData, insert, API_URL } = useContext(AuthContext);
+
 
     const getDownloadUrl = (registerId) => {
         return `${API_URL}/adm/download_certificate_jpg?register_id=${registerId}`;
@@ -135,6 +137,32 @@ function Certificate() {
         setViewMode("add");
 
     };
+
+    const handleAutoGenerateCertificates = async () => {
+        if (autoGenerating) return;
+        setAutoGenerating(true);
+
+        try {
+            const res = await insert({}, "auto_generate_certificates");
+            console.log("Auto generate certificates response:", res);
+
+            if (res && res.message) {
+                alert(res.message);
+            } else {
+                alert("Auto certificate generation completed.");
+            }
+
+            await fetchCertificates();
+            setCurrentPage(1);
+
+        } catch (err) {
+            console.error("Auto certificate generation failed:", err);
+            alert("Failed to auto generate certificates. Please try again.");
+        } finally {
+            setAutoGenerating(false);
+        }
+    };
+
 
     const handleOpenEdit = (cert) => {
 
@@ -323,16 +351,33 @@ function Certificate() {
                         </div>
 
 
-                        <button
-                            className="btn btn-primary add-btn"
-                            onClick={handleOpenAdd}
-                        >
+                        <div className="d-flex gap-2 flex-wrap">
+                            <button
+                                className="btn btn-primary add-btn"
+                                onClick={handleOpenAdd}
+                            >
+                                <i className="bx bx-plus me-2"></i>
+                                Add Certificate
+                            </button>
 
-                            <i className="bx bx-plus me-2"></i>
-
-                            Add Certificate
-
-                        </button>
+                            <button
+                                className="btn btn-primary add-btn"
+                                onClick={handleAutoGenerateCertificates}
+                                disabled={autoGenerating}
+                            >
+                                {autoGenerating ? (
+                                    <>
+                                        <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                                        Generating...
+                                    </>
+                                ) : (
+                                    <>
+                                        <i className="bx bx-cog me-2"></i>
+                                        Auto Certificate Generation
+                                    </>
+                                )}
+                            </button>
+                        </div>
 
                     </div>
 

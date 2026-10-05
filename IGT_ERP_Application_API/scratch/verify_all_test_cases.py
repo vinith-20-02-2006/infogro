@@ -9,7 +9,7 @@ sys.path.append('c:/Users/RBI/OneDrive/Desktop/ERP_application_wp/ERP_applicatio
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'ERP_application.settings')
 django.setup()
 
-from django.db import connection
+from django.db import connection, models
 
 BASE_URL = "http://127.0.0.1:8000/adm"
 
@@ -19,6 +19,14 @@ def run_tests():
     # Clean up test certificates so initial search tests find eligible candidates
     cursor = connection.cursor()
     cursor.execute("DELETE FROM certificate WHERE register_id IN ('IGT001', 'IGT005', 'IGT_TEST_DEL') OR certificate_id IN ('IGT001', 'IGT005', 'IGT_TEST_DEL')")
+    
+    from certificate_application.models import Certificate
+    if not Certificate.objects.filter(models.Q(register_id='IGT004') | models.Q(certificate_id='IGT004')).exists():
+        Certificate.objects.create(
+            register_id='IGT004', certificate_id='CERT-2026-IGT004',
+            verification_token='token-IGT004', student_name='Divya S',
+            course_name='JavaScript', whatsapp_number='917010835939'
+        )
     
     # TC01: List Certificates
     try:
@@ -293,6 +301,25 @@ def run_tests():
         results.append(("TC26", "Delete Certificate API", "PASS", "Successfully deleted certificate via API"))
     except Exception as e:
         results.append(("TC26", "Delete Certificate API", "FAIL", str(e)))
+
+    # TC27: Auto Certificate Generation API
+    try:
+        r_auto = requests.post(f"{BASE_URL}/auto_generate_certificates")
+        assert r_auto.status_code == 200
+        auto_data = r_auto.json()
+        assert 'eligible_students' in auto_data
+        assert 'certificates_generated' in auto_data
+        assert 'already_existed' in auto_data
+
+        # Test idempotency (2nd call should skip all existing)
+        r_auto2 = requests.post(f"{BASE_URL}/auto_generate_certificates")
+        assert r_auto2.status_code == 200
+        auto_data2 = r_auto2.json()
+        assert auto_data2['certificates_generated'] == 0
+        results.append(("TC27", "Auto Certificate Generation API", "PASS", f"Idempotent auto-generation verified (Eligible: {auto_data['eligible_students']}, Generated: {auto_data['certificates_generated']}, Skipped: {auto_data2['already_existed']})"))
+    except Exception as e:
+        results.append(("TC27", "Auto Certificate Generation API", "FAIL", str(e)))
+
 
     # Restore sample certificates so frontend table remains populated
     try:

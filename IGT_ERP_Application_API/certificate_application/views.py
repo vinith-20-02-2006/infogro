@@ -256,3 +256,28 @@ class DeleteCertificate(APIView):
         return self.post(request)
 
 
+# ==========================================
+# AUTO GENERATE CERTIFICATES
+# ==========================================
+class AutoGenerateCertificates(APIView):
+    permission_classes = [AllowAny]
+    authentication_classes = []
+
+    def post(self, request):
+        try:
+            result = Certificate_services.auto_generate_certificates()
+            return Response(result, status=status.HTTP_200_OK)
+        except Exception as e:
+            logger.exception("Failed to auto generate certificates")
+            return Response({
+                "message": f"Auto certificate generation failed: {str(e)}",
+                "eligible_students": 0,
+                "certificates_generated": 0,
+                "already_existed": 0
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+    def get(self, request):
+        return self.post(request)
+
+
+
