@@ -36,3 +36,16 @@ class Certificate(models.Model):
 
     def __str__(self):
         return f"{self.certificate_id} - {self.student_name} ({self.get_effective_course_name()})"
+
+
+class CertificateSettings(models.Model):
+    setting_key = models.CharField(max_length=100, primary_key=True)
+    setting_value = models.CharField(max_length=255)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'certificate_settings'
+
+    def __str__(self):
+        return f"{self.setting_key}: {self.setting_value}"
+

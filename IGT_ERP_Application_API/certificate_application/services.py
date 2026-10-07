@@ -9,7 +9,7 @@ from PIL import Image, ImageDraw, ImageFont
 from django.conf import settings
 from django.db import connection, models
 from django.contrib.auth.models import User
-from .models import Certificate
+from .models import Certificate, CertificateSettings
 from admin_application.models.Enrollment import Enrollment
 from admin_application.models.Course import Course
 
@@ -20,9 +20,16 @@ class Certificate_services:
 
     @staticmethod
     def ensure_stored_procedures():
-        """Ensure required Certificate stored procedures exist in MySQL DB."""
+        """Ensure required Certificate stored procedures and settings table exist in MySQL DB."""
         try:
             with connection.cursor() as cursor:
+                cursor.execute("""
+                    CREATE TABLE IF NOT EXISTS certificate_settings (
+                        setting_key VARCHAR(100) PRIMARY KEY,
+                        setting_value VARCHAR(255) NOT NULL,
+                        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+                    );
+                """)
                 cursor.execute("DROP PROCEDURE IF EXISTS sp_certificate_get_all")
                 cursor.execute("""
                     CREATE PROCEDURE sp_certificate_get_all()
@@ -51,10 +58,65 @@ class Certificate_services:
             pass
 
     @staticmethod
+    def get_auto_certificate_status():
+        """Get current Auto Certificate Generation toggle state from DB."""
+        Certificate_services.ensure_stored_procedures()
+        try:
+            setting = CertificateSettings.objects.filter(setting_key='auto_generate_certificates').first()
+            is_on = (setting.setting_value.lower() == 'true') if setting else False
+            return {"auto_generate": is_on}
+        except Exception as e:
+            logger.exception("Error reading auto certificate status")
+            return {"auto_generate": False}
+
+    @staticmethod
+    def toggle_auto_certificate(enable=None):
+        """
+        Toggle or set the Auto Certificate Generation state.
+        When enable becomes True, immediately runs auto_generate_certificates().
+        """
+        Certificate_services.ensure_stored_procedures()
+        try:
+            setting, _ = CertificateSettings.objects.get_or_create(
+                setting_key='auto_generate_certificates',
+                defaults={'setting_value': 'false'}
+            )
+
+            current_val = (setting.setting_value.lower() == 'true')
+            if enable is None:
+                new_val = not current_val
+            else:
+                new_val = bool(enable)
+
+            setting.setting_value = 'true' if new_val else 'false'
+            setting.save()
+
+            gen_result = None
+            if new_val:
+                gen_result = Certificate_services.auto_generate_certificates()
+
+            status_msg = "Auto Certificate Generation turned ON" if new_val else "Auto Certificate Generation turned OFF"
+            return {
+                "success": True,
+                "auto_generate": new_val,
+                "message": status_msg,
+                "generation_result": gen_result
+            }
+        except Exception as e:
+            logger.exception("Error toggling auto certificate mode")
+            raise ValueError(f"Failed to toggle auto certificate mode: {str(e)}")
+
+
+    @staticmethod
     def get_all_certificates():
         """Fetch all certificate records for the Certificate Table UI using MySQL Stored Procedure sp_certificate_get_all()."""
         Certificate_services.ensure_stored_procedures()
         try:
+            # If Auto Certificate Generation is ON, automatically detect newly eligible students and generate certificates
+            status_info = Certificate_services.get_auto_certificate_status()
+            if status_info.get("auto_generate"):
+                Certificate_services.auto_generate_certificates()
+
             with connection.cursor() as cursor:
                 cursor.execute("CALL sp_certificate_get_all()")
                 if cursor.description:

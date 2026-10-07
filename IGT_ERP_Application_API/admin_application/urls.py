@@ -23,5 +23,7 @@ urlpatterns += [
     path('download_certificate_jpg', Certificate_views.DownloadCertificateJPG.as_view(), name='download_certificate_jpg'),
     path('render_certificate_image', Certificate_views.RenderCertificateImage.as_view(), name='render_certificate_image'),
     path('auto_generate_certificates', Certificate_views.AutoGenerateCertificates.as_view(), name='auto_generate_certificates'),
+    path('get_auto_certificate_status', Certificate_views.GetAutoCertificateStatus.as_view(), name='get_auto_certificate_status'),
+    path('toggle_auto_certificate', Certificate_views.ToggleAutoCertificate.as_view(), name='toggle_auto_certificate'),
     path('send_certificate_whatsapp', Certificate_views.SendCertificateWhatsApp.as_view(), name='send_certificate_whatsapp'),
 ]

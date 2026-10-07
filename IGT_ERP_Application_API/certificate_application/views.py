@@ -24,6 +24,10 @@ class ListCertificates(APIView):
 
     def get(self, request):
         try:
+            status_info = Certificate_services.get_auto_certificate_status()
+            if status_info.get("auto_generate"):
+                Certificate_services.auto_generate_certificates()
+
             certs = Certificate_services.get_all_certificates()
             return Response(certs, status=status.HTTP_200_OK)
         except Exception as e:
@@ -315,6 +319,55 @@ class SendCertificateWhatsApp(APIView):
 
     def get(self, request):
         return self.post(request)
+
+
+# ==========================================
+# GET AUTO CERTIFICATE STATUS
+# ==========================================
+class GetAutoCertificateStatus(APIView):
+    permission_classes = [AllowAny]
+    authentication_classes = []
+
+    def get(self, request):
+        try:
+            res = Certificate_services.get_auto_certificate_status()
+            return Response(res, status=status.HTTP_200_OK)
+        except Exception as e:
+            logger.exception("Failed to get auto certificate status")
+            return Response({"auto_generate": False, "error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+    def post(self, request):
+        return self.get(request)
+
+
+# ==========================================
+# TOGGLE AUTO CERTIFICATE GENERATION
+# ==========================================
+class ToggleAutoCertificate(APIView):
+    permission_classes = [AllowAny]
+    authentication_classes = []
+
+    def post(self, request):
+        try:
+            enable_val = None
+            if isinstance(request.data, dict) and 'auto_generate' in request.data:
+                enable_val = request.data.get('auto_generate')
+                if isinstance(enable_val, str):
+                    enable_val = (enable_val.lower() == 'true')
+            elif isinstance(request.data, dict) and 'enable' in request.data:
+                enable_val = request.data.get('enable')
+                if isinstance(enable_val, str):
+                    enable_val = (enable_val.lower() == 'true')
+
+            res = Certificate_services.toggle_auto_certificate(enable=enable_val)
+            return Response(res, status=status.HTTP_200_OK)
+        except Exception as e:
+            logger.exception("Failed to toggle auto certificate generation")
+            return Response({"success": False, "message": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+    def get(self, request):
+        return self.post(request)
+
 
 
 

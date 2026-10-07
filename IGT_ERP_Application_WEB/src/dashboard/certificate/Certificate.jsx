@@ -29,6 +29,8 @@ function Certificate() {
     const [selectedCert, setSelectedCert] = useState(null);
     const [loading, setLoading] = useState(false);
     const [autoGenerating, setAutoGenerating] = useState(false);
+    const [autoGenerateToggle, setAutoGenerateToggle] = useState(false);
+    const [togglingAuto, setTogglingAuto] = useState(false);
     const [whatsappStatusMap, setWhatsappStatusMap] = useState({});
 
     const { getData, insert, API_URL } = useContext(AuthContext);
@@ -37,6 +39,22 @@ function Certificate() {
     const getDownloadUrl = (registerId) => {
         return `${API_URL}/adm/download_certificate_jpg?register_id=${registerId}`;
     };
+
+
+    // =====================================================
+    // FETCH AUTO CERTIFICATE TOGGLE STATUS FROM DATABASE
+    // =====================================================
+
+    const fetchAutoStatus = useCallback(async () => {
+        try {
+            const res = await getData("get_auto_certificate_status");
+            if (res && typeof res.auto_generate === "boolean") {
+                setAutoGenerateToggle(res.auto_generate);
+            }
+        } catch (err) {
+            console.error("Failed to fetch auto certificate status:", err);
+        }
+    }, [getData]);
 
 
     // =====================================================
@@ -85,8 +103,9 @@ function Certificate() {
     useEffect(() => {
 
         fetchCertificates();
+        fetchAutoStatus();
 
-    }, [fetchCertificates, viewMode]);
+    }, [fetchCertificates, fetchAutoStatus, viewMode]);
 
 
     // =====================================================
@@ -136,6 +155,32 @@ function Certificate() {
 
         setViewMode("add");
 
+    };
+
+    const handleToggleAutoCertificate = async () => {
+        if (togglingAuto) return;
+        const nextState = !autoGenerateToggle;
+        setTogglingAuto(true);
+        try {
+            const res = await insert({ auto_generate: nextState }, "toggle_auto_certificate");
+            console.log("Toggle auto certificate response:", res);
+
+            if (res && res.success) {
+                setAutoGenerateToggle(res.auto_generate);
+                if (res.message) {
+                    alert(res.message);
+                }
+                await fetchCertificates();
+                setCurrentPage(1);
+            } else {
+                alert(res?.message || "Failed to update Auto Certificate status.");
+            }
+        } catch (err) {
+            console.error("Error toggling auto certificate:", err);
+            alert(err.message || "Failed to toggle Auto Certificate mode.");
+        } finally {
+            setTogglingAuto(false);
+        }
     };
 
     const handleAutoGenerateCertificates = async () => {
@@ -334,19 +379,24 @@ function Certificate() {
                             </button>
 
                             <button
-                                className="btn btn-primary add-btn"
-                                onClick={handleAutoGenerateCertificates}
-                                disabled={autoGenerating}
+                                className={`btn ${autoGenerateToggle ? "btn-success" : "btn-outline-secondary"} add-btn d-inline-flex align-items-center`}
+                                onClick={handleToggleAutoCertificate}
+                                disabled={togglingAuto}
+                                title={autoGenerateToggle ? "Auto Generation is ON (Click to turn OFF)" : "Auto Generation is OFF (Click to turn ON)"}
+                                style={{
+                                    transition: "all 0.3s ease",
+                                    fontWeight: "600"
+                                }}
                             >
-                                {autoGenerating ? (
+                                {togglingAuto ? (
                                     <>
                                         <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
-                                        Generating...
+                                        Updating...
                                     </>
                                 ) : (
                                     <>
-                                        <i className="bx bx-cog me-2"></i>
-                                        Auto Certificate Generation
+                                        <i className={`bx ${autoGenerateToggle ? "bx-toggle-right" : "bx-toggle-left"} me-2`} style={{ fontSize: "22px" }}></i>
+                                        Auto Certificate: {autoGenerateToggle ? "ON" : "OFF"}
                                     </>
                                 )}
                             </button>
