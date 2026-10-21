@@ -196,10 +196,18 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 CORS_ALLOW_ALL_ORIGINS = True
 
-# WhatsApp API Provider Configuration (UltraMsg Instance #193506)
+# ==========================================
+# WHATSAPP API PROVIDER CONFIGURATION
+# ==========================================
 import os
-WHATSAPP_API_URL = os.environ.get('WHATSAPP_API_URL', 'https://api.ultramsg.com/instance193506/messages/image')
-WHATSAPP_API_TOKEN = os.environ.get('WHATSAPP_API_TOKEN', '1yikjnf8quipj0jb')
+# 1. Official Meta WhatsApp Cloud API (developers.facebook.com)
+WHATSAPP_PHONE_NUMBER_ID = os.environ.get('WHATSAPP_PHONE_NUMBER_ID', '')
+WHATSAPP_API_TOKEN = os.environ.get('WHATSAPP_API_TOKEN', '')
+WHATSAPP_API_URL = os.environ.get(
+    'WHATSAPP_API_URL',
+    f"https://graph.facebook.com/v21.0/{WHATSAPP_PHONE_NUMBER_ID}/messages" if WHATSAPP_PHONE_NUMBER_ID else "https://graph.facebook.com/v21.0/YOUR_PHONE_NUMBER_ID/messages"
+)
+
 
 
 

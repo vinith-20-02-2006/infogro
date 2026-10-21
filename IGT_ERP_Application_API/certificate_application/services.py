@@ -5,7 +5,7 @@ import logging
 import base64
 import requests
 from datetime import datetime, date
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw, ImageFont, ImageOps
 from django.conf import settings
 from django.db import connection, models
 from django.contrib.auth.models import User
@@ -46,6 +46,7 @@ class Certificate_services:
                             c.assignment_score,
                             c.assessment_score,
                             c.certificate_image,
+                            c.student_photo,
                             c.verification_token,
                             c.whatsapp_number,
                             c.certificate_status
@@ -146,6 +147,7 @@ class Certificate_services:
                             "assignment_score": item.get('assignment_score'),
                             "assessment_score": item.get('assessment_score'),
                             "certificate_image": img_url,
+                            "student_photo": item.get('student_photo') or "",
                             "verification_token": item.get('verification_token'),
                             "whatsapp_number": item.get('whatsapp_number') or "",
                             "status": item.get('certificate_status') or "Active"
@@ -175,6 +177,7 @@ class Certificate_services:
                 "assignment_score": cert.assignment_score,
                 "assessment_score": cert.assessment_score,
                 "certificate_image": img_url,
+                "student_photo": cert.student_photo or "",
                 "verification_token": cert.verification_token,
                 "whatsapp_number": cert.whatsapp_number or "",
                 "status": cert.certificate_status
@@ -238,6 +241,18 @@ class Certificate_services:
 
             course_name = item.course.Course_name if item.course else "FullStack Python"
 
+            photo = getattr(item, 'student_photo', '') or ""
+            if not photo and reg_id:
+                for ext in ['.png', '.jpg', '.jpeg']:
+                    cand = os.path.join(settings.MEDIA_ROOT, 'student_photos', f"{reg_id}{ext}")
+                    if os.path.exists(cand):
+                        photo = f"student_photos/{reg_id}{ext}"
+                        break
+            if not photo:
+                default_path = os.path.join(settings.MEDIA_ROOT, 'student_photos', 'default_student.png')
+                if os.path.exists(default_path):
+                    photo = "student_photos/default_student.png"
+
             results.append({
                 "enrollment_id": item.enrollment_id,
                 "register_id": reg_id,
@@ -249,7 +264,8 @@ class Certificate_services:
                 "assessment_status": item.assessment_status or "Completed",
                 "assignment_score": item.assignment_score if item.assignment_score is not None else 90.0,
                 "assessment_score": item.assessment_score if item.assessment_score is not None else 95.0,
-                "whatsapp_number": item.whatsapp_number or ""
+                "whatsapp_number": item.whatsapp_number or "",
+                "student_photo": photo
             })
 
         # Also search Users directly if no enrollment match found for the query
@@ -269,6 +285,17 @@ class Certificate_services:
                 if full_name.lower() not in existing_names:
                     reg_id = f"IGT{u.id:03d}"
                     if reg_id not in existing_reg_ids:
+                        user_photo = ""
+                        for ext in ['.png', '.jpg', '.jpeg']:
+                            cand = os.path.join(settings.MEDIA_ROOT, 'student_photos', f"{reg_id}{ext}")
+                            if os.path.exists(cand):
+                                user_photo = f"student_photos/{reg_id}{ext}"
+                                break
+                        if not user_photo:
+                            default_path = os.path.join(settings.MEDIA_ROOT, 'student_photos', 'default_student.png')
+                            if os.path.exists(default_path):
+                                user_photo = "student_photos/default_student.png"
+
                         results.append({
                             "enrollment_id": u.id,
                             "register_id": reg_id,
@@ -280,89 +307,210 @@ class Certificate_services:
                             "assessment_status": "Completed",
                             "assignment_score": 90.0,
                             "assessment_score": 95.0,
-                            "whatsapp_number": ""
+                            "whatsapp_number": "",
+                            "student_photo": user_photo
                         })
 
         return results
 
     @staticmethod
-    def generate_certificate_image_bytes(student_name, course_name, issue_date_str, register_id, certificate_id=None):
-        """Generates a high-quality JPG image certificate in RAM using Pillow (PIL) and io.BytesIO."""
+    def generate_certificate_image_bytes(student_name, course_name, issue_date_str, register_id, certificate_id=None, marks=None, duration=None, student_photo=None):
+        """Generates a high-quality certificate JPG using the official Infogro Technology Certificate of Merit template."""
         if not certificate_id:
             certificate_id = f"CERT-{datetime.now().year}-{register_id}"
 
-        width, height = 1600, 1131
-        img = Image.new("RGB", (width, height), color=(255, 255, 255))
+        template_path = os.path.join(settings.BASE_DIR, 'certificate_template.png')
+        if not os.path.exists(template_path):
+            alt_path = os.path.join(settings.MEDIA_ROOT, 'certificates', 'certificate_template.png')
+            if os.path.exists(alt_path):
+                template_path = alt_path
+
+        if os.path.exists(template_path):
+            img = Image.open(template_path).convert('RGB')
+        else:
+            width, height = 1024, 723
+            img = Image.new("RGB", (width, height), color=(252, 252, 252))
+
         draw = ImageDraw.Draw(img)
+        w, h = img.size
+        cx = 608
 
-        NAVY = (15, 76, 129)
-        GOLD = (245, 176, 0)
-        ORANGE = (230, 81, 0)
-        DARK_GRAY = (50, 50, 50)
-        LIGHT_BG = (250, 252, 255)
-        BORDER_GOLD = (212, 160, 23)
-
-        draw.rectangle([0, 0, width, height], fill=LIGHT_BG)
-        draw.rectangle([30, 30, width - 30, height - 30], outline=NAVY, width=8)
-        draw.rectangle([45, 45, width - 45, height - 45], outline=BORDER_GOLD, width=4)
-
-        draw.polygon([(45, 45), (140, 45), (45, 140)], fill=NAVY)
-        draw.polygon([(width - 45, 45), (width - 140, 45), (width - 45, 140)], fill=NAVY)
-        draw.polygon([(45, height - 45), (140, height - 45), (45, height - 140)], fill=NAVY)
-        draw.polygon([(width - 45, height - 45), (width - 140, height - 45), (width - 45, height - 140)], fill=NAVY)
-
+        # Load fonts
         try:
-            title_font = ImageFont.truetype("arialbd.ttf", 60)
-            subtitle_font = ImageFont.truetype("arialbd.ttf", 26)
-            name_font = ImageFont.truetype("georgiab.ttf", 52)
-            body_font = ImageFont.truetype("arial.ttf", 24)
-            course_font = ImageFont.truetype("arialbd.ttf", 36)
-            meta_font = ImageFont.truetype("arial.ttf", 22)
-            meta_bold = ImageFont.truetype("arialbd.ttf", 22)
+            font_name = ImageFont.truetype(r'C:\Windows\Fonts\georgiab.ttf', 35)
+            font_regular = ImageFont.truetype(r'C:\Windows\Fonts\georgia.ttf', 20)
+            font_bold = ImageFont.truetype(r'C:\Windows\Fonts\georgiab.ttf', 20)
+            font_meta = ImageFont.truetype(r'C:\Windows\Fonts\arialbd.ttf', 13)
         except Exception:
-            title_font = ImageFont.load_default()
-            subtitle_font = title_font
-            name_font = title_font
-            body_font = title_font
-            course_font = title_font
-            meta_font = title_font
-            meta_bold = title_font
-
-        logo_path = os.path.join(settings.BASE_DIR, 'igt_logo.png')
-        if os.path.exists(logo_path):
             try:
-                logo = Image.open(logo_path).convert("RGBA")
-                logo.thumbnail((160, 160))
-                img.paste(logo, ((width - logo.width) // 2, 85), logo)
+                font_name = ImageFont.truetype("georgiab.ttf", 35)
+                font_regular = ImageFont.truetype("georgia.ttf", 20)
+                font_bold = ImageFont.truetype("georgiab.ttf", 20)
+                font_meta = ImageFont.truetype("arialbd.ttf", 13)
+            except Exception:
+                font_name = ImageFont.load_default()
+                font_regular = font_name
+                font_bold = font_name
+                font_meta = font_name
+
+        # Determine Marks / Score & Student Photo from Database
+        cert = None
+        try:
+            cert = Certificate.objects.filter(
+                models.Q(certificate_id=certificate_id) | models.Q(register_id=register_id)
+            ).first()
+        except Exception:
+            pass
+
+        if marks is None:
+            if cert and (cert.assessment_score or cert.assignment_score):
+                score_val = cert.assessment_score if cert.assessment_score is not None else cert.assignment_score
+                marks = int(score_val)
+            else:
+                marks = 70
+
+        if not student_photo:
+            if cert and getattr(cert, 'student_photo', None):
+                student_photo = cert.student_photo
+            else:
+                try:
+                    enr = Enrollment.objects.filter(
+                        models.Q(register_id=register_id) | models.Q(student_name=student_name)
+                    ).first()
+                    if enr and getattr(enr, 'student_photo', None):
+                        student_photo = enr.student_photo
+                except Exception:
+                    pass
+
+        if duration is None:
+            duration = "360Hrs"
+
+        # -------------------------------------------------------------
+        # 1. Dynamic Student Photo (Top Right Box: 844, 44, 133x133)
+        # -------------------------------------------------------------
+        photo_img = None
+        if student_photo:
+            try:
+                sp_str = str(student_photo).strip()
+                if os.path.isabs(sp_str) and os.path.exists(sp_str):
+                    photo_img = Image.open(sp_str).convert('RGBA')
+                elif os.path.exists(os.path.join(settings.MEDIA_ROOT, sp_str)):
+                    photo_img = Image.open(os.path.join(settings.MEDIA_ROOT, sp_str)).convert('RGBA')
+                elif os.path.exists(os.path.join(settings.MEDIA_ROOT, 'student_photos', sp_str)):
+                    photo_img = Image.open(os.path.join(settings.MEDIA_ROOT, 'student_photos', sp_str)).convert('RGBA')
+                elif sp_str.startswith('data:image'):
+                    b64_data = sp_str.split(',', 1)[1] if ',' in sp_str else sp_str
+                    photo_img = Image.open(io.BytesIO(base64.b64decode(b64_data))).convert('RGBA')
+                elif sp_str.startswith(('http://', 'https://')):
+                    resp = requests.get(sp_str, timeout=4)
+                    if resp.status_code == 200:
+                        photo_img = Image.open(io.BytesIO(resp.content)).convert('RGBA')
+            except Exception as e:
+                logger.warning(f"Could not load student photo '{student_photo}': {e}")
+
+        # Fallback check media/student_photos/{register_id}.*
+        if not photo_img and register_id:
+            for ext in ['.png', '.jpg', '.jpeg']:
+                cand = os.path.join(settings.MEDIA_ROOT, 'student_photos', f"{register_id}{ext}")
+                if os.path.exists(cand):
+                    try:
+                        photo_img = Image.open(cand).convert('RGBA')
+                        break
+                    except Exception:
+                        pass
+
+        # Fallback default student avatar
+        if not photo_img:
+            default_path = os.path.join(settings.MEDIA_ROOT, 'student_photos', 'default_student.png')
+            if os.path.exists(default_path):
+                try:
+                    photo_img = Image.open(default_path).convert('RGBA')
+                except Exception:
+                    pass
+
+        # Draw dynamic student photo with rounded corners and gold border
+        if photo_img:
+            try:
+                target_w, target_h = 133, 133
+                radius = 14
+                photo_fitted = ImageOps.fit(photo_img, (target_w, target_h), Image.Resampling.LANCZOS)
+
+                # Rounded corner mask
+                mask = Image.new('L', (target_w, target_h), 0)
+                mask_draw = ImageDraw.Draw(mask)
+                mask_draw.rounded_rectangle([(0, 0), (target_w, target_h)], radius=radius, fill=255)
+
+                # Elegant golden border matching certificate gold accents
+                border_img = Image.new('RGBA', (target_w, target_h), (0, 0, 0, 0))
+                border_draw = ImageDraw.Draw(border_img)
+                border_draw.rounded_rectangle([(0, 0), (target_w - 1, target_h - 1)], radius=radius, outline=(218, 165, 32, 220), width=2)
+
+                rounded_photo = Image.composite(photo_fitted, Image.new('RGBA', (target_w, target_h), (255, 255, 255, 0)), mask)
+                rounded_photo.paste(border_img, (0, 0), border_img)
+
+                img.paste(rounded_photo, (844, 44), rounded_photo)
+            except Exception as e:
+                logger.error(f"Failed to composite dynamic student photo: {e}")
+
+        # 1. Student Name
+        display_name = str(student_name or "Student").strip()
+        bb_name = draw.textbbox((0, 0), display_name, font=font_name)
+        name_w = bb_name[2] - bb_name[0]
+        name_x = cx - name_w // 2
+        name_y = 370
+        draw.text((name_x, name_y), display_name, fill=(25, 21, 60), font=font_name)
+
+        # Underline
+        underline_y = 409
+        pad = 18
+        draw.line([(name_x - pad, underline_y), (name_x + name_w + pad, underline_y)], fill=(25, 21, 60), width=2)
+
+        # 2. Course line 1
+        prefix = 'has successfully completed the course '
+        p_w = draw.textbbox((0, 0), prefix, font=font_regular)[2]
+        c_w = draw.textbbox((0, 0), str(course_name or "Course"), font=font_bold)[2]
+        total_w1 = p_w + c_w
+
+        curr_font_reg = font_regular
+        curr_font_bold = font_bold
+        if total_w1 > 690:
+            scale_sz = max(16, int(20 * (690 / total_w1)))
+            try:
+                curr_font_reg = ImageFont.truetype(r'C:\Windows\Fonts\georgia.ttf', scale_sz)
+                curr_font_bold = ImageFont.truetype(r'C:\Windows\Fonts\georgiab.ttf', scale_sz)
             except Exception:
                 pass
-        else:
-            draw.text((width // 2, 110), "IGT ERP ACADEMY", fill=NAVY, font=subtitle_font, anchor="mm")
+            p_w = draw.textbbox((0, 0), prefix, font=curr_font_reg)[2]
+            c_w = draw.textbbox((0, 0), str(course_name or "Course"), font=curr_font_bold)[2]
+            total_w1 = p_w + c_w
 
-        draw.text((width // 2, 280), "CERTIFICATE OF COMPLETION", fill=NAVY, font=title_font, anchor="mm")
-        draw.text((width // 2, 340), "THIS IS PROUDLY PRESENTED TO", fill=GOLD, font=subtitle_font, anchor="mm")
+        start_x1 = cx - total_w1 // 2
+        draw.text((start_x1, 434), prefix, fill=(15, 15, 15), font=curr_font_reg)
+        draw.text((start_x1 + p_w, 434), str(course_name or "Course"), fill=(24, 22, 40), font=curr_font_bold)
 
-        draw.line([(width // 2 - 200, 365), (width // 2 + 200, 365)], fill=ORANGE, width=3)
+        # 3. Course line 2
+        marks_str = f"{marks}% marks" if isinstance(marks, (int, float)) else f"{marks} marks"
+        t1 = 'with '
+        t2 = marks_str
+        t3 = ' Course Duration '
+        t4 = str(duration)
 
-        draw.text((width // 2, 450), str(student_name), fill=NAVY, font=name_font, anchor="mm")
-        draw.line([(width // 2 - 300, 490), (width // 2 + 300, 490)], fill=NAVY, width=2)
+        w1 = draw.textbbox((0, 0), t1, font=font_regular)[2]
+        w2 = draw.textbbox((0, 0), t2, font=font_bold)[2]
+        w3 = draw.textbbox((0, 0), t3, font=font_regular)[2]
+        w4 = draw.textbbox((0, 0), t4, font=font_bold)[2]
+        total_w2 = w1 + w2 + w3 + w4
+        start_x2 = cx - total_w2 // 2
 
-        draw.text((width // 2, 550), "for successfully completing the official training program and assessment in", fill=DARK_GRAY, font=body_font, anchor="mm")
+        draw.text((start_x2, 471), t1, fill=(15, 15, 15), font=font_regular)
+        draw.text((start_x2 + w1, 471), t2, fill=(24, 22, 40), font=font_bold)
+        draw.text((start_x2 + w1 + w2, 471), t3, fill=(15, 15, 15), font=font_regular)
+        draw.text((start_x2 + w1 + w2 + w3, 471), t4, fill=(24, 22, 40), font=font_bold)
 
-        draw.text((width // 2, 620), str(course_name), fill=NAVY, font=course_font, anchor="mm")
-
-        draw.ellipse([(width // 2 - 40, 690), (width // 2 + 40, 770)], fill=GOLD, outline=BORDER_GOLD, width=3)
-        draw.text((width // 2, 730), "IGT", fill=NAVY, font=subtitle_font, anchor="mm")
-
-        # Display Certificate ID, Student ID, and Issue Date
-        draw.text((250, 880), f"Certificate ID: {certificate_id}", fill=NAVY, font=meta_bold)
-        draw.text((250, 920), f"Student ID: {register_id}", fill=DARK_GRAY, font=meta_bold)
-        draw.text((250, 960), f"Issue Date: {issue_date_str}", fill=DARK_GRAY, font=meta_font)
-        draw.line([(250, 860), (450, 860)], fill=DARK_GRAY, width=2)
-
-        draw.text((width - 450, 920), "Authorized Signature", fill=NAVY, font=meta_bold)
-        draw.text((width - 450, 960), "IGT Executive Director", fill=DARK_GRAY, font=meta_font)
-        draw.line([(width - 450, 900), (width - 250, 900)], fill=DARK_GRAY, width=2)
+        # 4. Certificate ID and Issue Date
+        clean_id = str(certificate_id or register_id)
+        draw.text((408, 638), f"{clean_id}", fill=(20, 25, 45), font=font_meta)
+        draw.text((380, 663), f"{issue_date_str}", fill=(20, 25, 45), font=font_meta)
 
         # Save to local media directory (MEDIA_ROOT/certificates)
         try:
@@ -370,7 +518,7 @@ class Certificate_services:
             os.makedirs(cert_dir, exist_ok=True)
             file_path = os.path.join(cert_dir, f"certificate_{register_id}.jpg")
             img.save(file_path, "JPEG", quality=95)
-        except Exception as e:
+        except Exception:
             pass
 
         buffer = io.BytesIO()
@@ -387,7 +535,7 @@ class Certificate_services:
     def generate_certificate(register_id, student_name, course_name, joining_date=None, issue_date=None,
                              assignment_status='Completed', assessment_status='Completed',
                              assignment_score=90.0, assessment_score=95.0, course_id=None,
-                             whatsapp_number=None):
+                             whatsapp_number=None, student_photo=None):
         """Creates or updates a Certificate record in the database."""
         valid_statuses = ['completed', 'passed']
         assign_ok = str(assignment_status).lower() in valid_statuses
@@ -407,6 +555,17 @@ class Certificate_services:
 
         if not whatsapp_number:
             whatsapp_number = "7010835939"
+
+        if not student_photo and register_id:
+            enr = Enrollment.objects.filter(register_id=register_id).first()
+            if enr and getattr(enr, 'student_photo', None):
+                student_photo = enr.student_photo
+
+        if not student_photo and register_id:
+            for ext in ['.png', '.jpg', '.jpeg']:
+                if os.path.exists(os.path.join(settings.MEDIA_ROOT, 'student_photos', f"{register_id}{ext}")):
+                    student_photo = f"student_photos/{register_id}{ext}"
+                    break
 
         if not issue_date:
             issue_date = date.today()
@@ -455,6 +614,7 @@ class Certificate_services:
             assignment_score=assignment_score,
             assessment_score=assessment_score,
             certificate_image=img_url,
+            student_photo=student_photo,
             whatsapp_number=whatsapp_number,
             certificate_status='Active'
         )
@@ -466,12 +626,13 @@ class Certificate_services:
             "course_name": cert.get_effective_course_name(),
             "issue_date": cert.issue_date.strftime("%d/%m/%Y"),
             "certificate_image": cert.certificate_image,
+            "student_photo": cert.student_photo or "",
             "verification_token": cert.verification_token,
             "whatsapp_number": cert.whatsapp_number or ""
         }
 
     @staticmethod
-    def update_certificate(certificate_id, student_name=None, course_name=None, issue_date=None, whatsapp_number=None):
+    def update_certificate(certificate_id, student_name=None, course_name=None, issue_date=None, whatsapp_number=None, student_photo=None):
         """Updates certificate details in database."""
         cert = Certificate.objects.filter(models.Q(certificate_id=certificate_id) | models.Q(register_id=certificate_id)).first()
         if not cert:
@@ -487,6 +648,9 @@ class Certificate_services:
 
         if whatsapp_number is not None:
             cert.whatsapp_number = whatsapp_number
+
+        if student_photo is not None:
+            cert.student_photo = student_photo
 
         if issue_date:
             if isinstance(issue_date, str):
@@ -515,6 +679,8 @@ class Certificate_services:
                     enr.student_name = student_name
                 if whatsapp_number:
                     enr.whatsapp_number = whatsapp_number
+                if student_photo is not None:
+                    enr.student_photo = student_photo
                 enr.save()
 
         return {
@@ -524,6 +690,7 @@ class Certificate_services:
             "course_name": effective_course_name,
             "issue_date": issue_date_str,
             "certificate_image": cert.certificate_image,
+            "student_photo": cert.student_photo or "",
             "whatsapp_number": cert.whatsapp_number or ""
         }
 
@@ -624,7 +791,8 @@ class Certificate_services:
                     assignment_score=enr.assignment_score or 90.0,
                     assessment_score=enr.assessment_score or 95.0,
                     course_id=enr.course.Course_id if enr.course else None,
-                    whatsapp_number=enr.whatsapp_number
+                    whatsapp_number=enr.whatsapp_number,
+                    student_photo=getattr(enr, 'student_photo', None)
                 )
                 generated_count += 1
             except ValueError:
@@ -687,7 +855,8 @@ class Certificate_services:
             course_name=course_name,
             issue_date_str=issue_date_str,
             register_id=cert.register_id or cert.certificate_id,
-            certificate_id=cert.certificate_id
+            certificate_id=cert.certificate_id,
+            student_photo=cert.student_photo
         )
 
         filename = f"certificate_{cert.register_id or cert.certificate_id}.jpg"
@@ -699,7 +868,50 @@ class Certificate_services:
 
         if api_url and api_token and str(api_token).strip():
             try:
-                if 'ultramsg.com' in api_url.lower():
+                if 'graph.facebook.com' in api_url.lower():
+                    # Official Meta WhatsApp Cloud API
+                    import re
+                    match = re.search(r'graph\.facebook\.com/[^/]+/(\d+)', api_url)
+                    phone_number_id = match.group(1) if match else getattr(settings, 'WHATSAPP_PHONE_NUMBER_ID', '')
+                    version_match = re.search(r'graph\.facebook\.com/(v\d+\.\d+)', api_url)
+                    api_version = version_match.group(1) if version_match else 'v21.0'
+
+                    if not phone_number_id:
+                        raise Exception("Meta Phone Number ID could not be identified from WHATSAPP_API_URL or WHATSAPP_PHONE_NUMBER_ID.")
+
+                    # 1. Upload Certificate Image to Meta Media endpoint
+                    upload_url = f"https://graph.facebook.com/{api_version}/{phone_number_id}/media"
+                    upload_headers = {'Authorization': f'Bearer {api_token}'}
+                    upload_files = {'file': (filename, image_bytes, 'image/jpeg')}
+                    upload_data = {'messaging_product': 'whatsapp', 'type': 'image/jpeg'}
+                    upload_resp = requests.post(upload_url, headers=upload_headers, files=upload_files, data=upload_data, timeout=20)
+                    
+                    if upload_resp.status_code not in [200, 201, 202]:
+                        raise Exception(f"Meta Media Upload failed HTTP {upload_resp.status_code}: {upload_resp.text}")
+                    
+                    media_id = upload_resp.json().get('id')
+                    if not media_id:
+                        raise Exception(f"Meta Media Upload did not return media id: {upload_resp.text}")
+
+                    # 2. Dispatch WhatsApp message with image media id
+                    messages_url = f"https://graph.facebook.com/{api_version}/{phone_number_id}/messages"
+                    msg_headers = {
+                        'Authorization': f'Bearer {api_token}',
+                        'Content-Type': 'application/json'
+                    }
+                    msg_payload = {
+                        "messaging_product": "whatsapp",
+                        "recipient_type": "individual",
+                        "to": clean_phone,
+                        "type": "image",
+                        "image": {
+                            "id": media_id,
+                            "caption": caption
+                        }
+                    }
+                    response = requests.post(messages_url, headers=msg_headers, json=msg_payload, timeout=20)
+
+                elif 'ultramsg.com' in api_url.lower():
                     target_url = api_url.rstrip('/')
                     if not target_url.endswith('/image'):
                         target_url = f"{target_url}/messages/image"

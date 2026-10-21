@@ -3,8 +3,22 @@ import "./updatecertificate.css";
 import AuthContext from "../../../services/AuthContext";
 
 function Updatecertificate({ toggle, data, onSuccess }) {
-  const { update } = useContext(AuthContext);
+  const { update, API_URL } = useContext(AuthContext);
   const [loading, setLoading] = useState(false);
+
+  const getPhotoUrl = (photoPath) => {
+    if (!photoPath) return "";
+    if (photoPath.startsWith("http://") || photoPath.startsWith("https://") || photoPath.startsWith("data:image")) {
+      return photoPath;
+    }
+    const baseUrl = API_URL || "http://127.0.0.1:8000";
+    const cleanPath = photoPath.startsWith("/") ? photoPath.slice(1) : photoPath;
+    if (cleanPath.startsWith("media/")) {
+      return `${baseUrl}/${cleanPath}`;
+    }
+    return `${baseUrl}/media/${cleanPath}`;
+  };
+
   const [editData, setEditData] = useState({
     certificate_id: "",
     register_id: "",
@@ -12,6 +26,7 @@ function Updatecertificate({ toggle, data, onSuccess }) {
     course_name: "",
     issue_date: "",
     whatsapp_number: "",
+    student_photo: "",
   });
 
   useEffect(() => {
@@ -41,6 +56,7 @@ function Updatecertificate({ toggle, data, onSuccess }) {
         course_name: data.course_name || "",
         issue_date: formattedDate,
         whatsapp_number: data.whatsapp_number || "",
+        student_photo: data.student_photo || "",
       });
     }
   }, [data]);
@@ -72,6 +88,61 @@ function Updatecertificate({ toggle, data, onSuccess }) {
 
         <div className="popup-body">
           <form onSubmit={handleSubmit}>
+            {/* Student Photo Profile Preview */}
+            <div
+              className="d-flex align-items-center gap-3 p-3 mb-3 rounded-3"
+              style={{ background: "#EEF2FF", border: "1.5px solid #C7D2FE", borderRadius: "12px" }}
+            >
+              <div
+                style={{
+                  width: "56px",
+                  height: "56px",
+                  borderRadius: "12px",
+                  overflow: "hidden",
+                  border: "2px solid #4F46E5",
+                  backgroundColor: "#FFFFFF",
+                  boxShadow: "0 2px 6px rgba(79, 70, 229, 0.15)",
+                  flexShrink: 0
+                }}
+              >
+                {editData.student_photo ? (
+                  <img
+                    src={getPhotoUrl(editData.student_photo)}
+                    alt={editData.student_name}
+                    style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                    onError={(e) => {
+                      e.target.style.display = "none";
+                      if (e.target.nextSibling) e.target.nextSibling.style.display = "flex";
+                    }}
+                  />
+                ) : null}
+                <div
+                  style={{
+                    display: editData.student_photo ? "none" : "flex",
+                    width: "100%",
+                    height: "100%",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    fontWeight: "700",
+                    fontSize: "20px",
+                    color: "#4F46E5",
+                    backgroundColor: "#EEF2FF"
+                  }}
+                >
+                  {editData.student_name ? editData.student_name.charAt(0).toUpperCase() : "S"}
+                </div>
+              </div>
+              <div>
+                <h6 className="mb-1 font-weight-bold" style={{ color: "#1E293B" }}>
+                  {editData.student_name || "Student"}
+                </h6>
+                <div className="text-muted small">
+                  <span className="badge bg-primary me-2">{editData.register_id}</span>
+                  {editData.student_photo ? "Dynamic photo linked" : "Default avatar"}
+                </div>
+              </div>
+            </div>
+
             <div className="mb-3">
               <label className="form-label font-weight-bold">Register ID / Student ID:</label>
               <input type="text" className="form-control bg-light" value={editData.register_id} readOnly />

@@ -15,6 +15,7 @@ class Enrollment(models.Model):
     assignment_score = models.FloatField(null=True, blank=True)
     assessment_score = models.FloatField(null=True, blank=True)
     whatsapp_number = models.CharField(max_length=20, null=True, blank=True)
+    student_photo = models.CharField(max_length=500, null=True, blank=True)
     create_date = models.DateTimeField(auto_now_add=True)
     update_date = models.DateTimeField(auto_now=True)
 

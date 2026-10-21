@@ -20,6 +20,19 @@
   animation: popupFade 0.25s ease;
 }
 
+.student-modal-content {
+  background: #ffffff;
+  border-radius: 18px;
+  width: 100%;
+  max-width: 660px;
+  max-height: 85vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 25px 50px -12px rgba(15, 23, 42, 0.25);
+  overflow: hidden;
+  animation: popupFade 0.2s ease-out;
+}
+
 .popup-header {
   padding: 18px 24px;
   background: #F8FAFC;

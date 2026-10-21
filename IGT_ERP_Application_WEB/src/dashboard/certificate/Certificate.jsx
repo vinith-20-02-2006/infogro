@@ -28,7 +28,6 @@ function Certificate() {
     const [certificates, setCertificates] = useState([]);
     const [selectedCert, setSelectedCert] = useState(null);
     const [loading, setLoading] = useState(false);
-    const [autoGenerating, setAutoGenerating] = useState(false);
     const [autoGenerateToggle, setAutoGenerateToggle] = useState(false);
     const [togglingAuto, setTogglingAuto] = useState(false);
     const [whatsappStatusMap, setWhatsappStatusMap] = useState({});
@@ -183,30 +182,6 @@ function Certificate() {
         }
     };
 
-    const handleAutoGenerateCertificates = async () => {
-        if (autoGenerating) return;
-        setAutoGenerating(true);
-
-        try {
-            const res = await insert({}, "auto_generate_certificates");
-            console.log("Auto generate certificates response:", res);
-
-            if (res && res.message) {
-                alert(res.message);
-            } else {
-                alert("Auto certificate generation completed.");
-            }
-
-            await fetchCertificates();
-            setCurrentPage(1);
-
-        } catch (err) {
-            console.error("Auto certificate generation failed:", err);
-            alert("Failed to auto generate certificates. Please try again.");
-        } finally {
-            setAutoGenerating(false);
-        }
-    };
 
 
     const handleOpenEdit = (cert) => {

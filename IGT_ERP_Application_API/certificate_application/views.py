@@ -83,6 +83,7 @@ class GenerateCertificate(APIView):
         assessment_score = serializers.FloatField(required=False, default=95.0)
         course_id = serializers.IntegerField(required=False, allow_null=True)
         whatsapp_number = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+        student_photo = serializers.CharField(required=False, allow_blank=True, allow_null=True)
 
     def post(self, request):
         serializer = self.InputSerializer(data=request.data)
@@ -101,7 +102,8 @@ class GenerateCertificate(APIView):
                 assignment_score=data.get('assignment_score', 90.0),
                 assessment_score=data.get('assessment_score', 95.0),
                 course_id=data.get('course_id'),
-                whatsapp_number=data.get('whatsapp_number')
+                whatsapp_number=data.get('whatsapp_number'),
+                student_photo=data.get('student_photo')
             )
             return Response({
                 "message": "Certificate issued successfully.",
@@ -128,6 +130,7 @@ class UpdateCertificate(APIView):
         course_name = serializers.CharField(required=False, allow_blank=True, allow_null=True)
         issue_date = serializers.CharField(required=False, allow_blank=True, allow_null=True)
         whatsapp_number = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+        student_photo = serializers.CharField(required=False, allow_blank=True, allow_null=True)
 
     def put(self, request):
         serializer = self.InputSerializer(data=request.data)
@@ -144,7 +147,8 @@ class UpdateCertificate(APIView):
                 student_name=data.get('student_name'),
                 course_name=data.get('course_name'),
                 issue_date=data.get('issue_date'),
-                whatsapp_number=data.get('whatsapp_number')
+                whatsapp_number=data.get('whatsapp_number'),
+                student_photo=data.get('student_photo')
             )
             return Response({
                 "message": "Certificate updated successfully.",
@@ -177,13 +181,15 @@ class RenderCertificateImage(APIView):
         student_name = cert.student_name or "Student"
         course_name = cert.get_effective_course_name()
         issue_date_str = cert.issue_date.strftime("%d/%m/%Y") if cert.issue_date else datetime.now().strftime("%d/%m/%Y")
+        student_photo = cert.student_photo or request.GET.get('student_photo')
 
         image_bytes = Certificate_services.generate_certificate_image_bytes(
             student_name=student_name,
             course_name=course_name,
             issue_date_str=issue_date_str,
             register_id=cert.register_id or cert.certificate_id,
-            certificate_id=cert.certificate_id
+            certificate_id=cert.certificate_id,
+            student_photo=student_photo
         )
 
         response = HttpResponse(image_bytes, content_type='image/jpeg')
@@ -210,13 +216,15 @@ class DownloadCertificateJPG(APIView):
         student_name = cert.student_name or "Student"
         course_name = cert.get_effective_course_name()
         issue_date_str = cert.issue_date.strftime("%d/%m/%Y") if cert.issue_date else datetime.now().strftime("%d/%m/%Y")
+        student_photo = cert.student_photo or request.GET.get('student_photo')
 
         image_bytes = Certificate_services.generate_certificate_image_bytes(
             student_name=student_name,
             course_name=course_name,
             issue_date_str=issue_date_str,
             register_id=cert.register_id or cert.certificate_id,
-            certificate_id=cert.certificate_id
+            certificate_id=cert.certificate_id,
+            student_photo=student_photo
         )
 
         filename = f"certificate_{cert.register_id or cert.certificate_id}.jpg"
