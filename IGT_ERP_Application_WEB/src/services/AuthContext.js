@@ -22,7 +22,12 @@ export const AuthProvider = ({ children }) => {
 
         if (tokens) {
             try {
-                return jwtDecode(JSON.parse(tokens).access);
+                const parsed = JSON.parse(tokens);
+                const decoded = jwtDecode(parsed.access);
+                return {
+                    ...decoded,
+                    ...(parsed.user || {})
+                };
             } catch (error) {
                 console.error('Invalid token:', error);
                 return null;
@@ -33,6 +38,49 @@ export const AuthProvider = ({ children }) => {
     });
 
     const history = useNavigate();
+
+    // =========================
+    // PERMISSION HELPER
+    // =========================
+    const hasPermission = useCallback((permissionKey) => {
+        if (!user) return false;
+        if (user.role === 'Admin' || user.is_superuser) return true;
+        if (permissionKey === 'profile') return true;
+        return Array.isArray(user.permissions) && user.permissions.includes(permissionKey);
+    }, [user]);
+
+    // =========================
+    // REFRESH USER PROFILE
+    // =========================
+    const refreshUserProfile = useCallback(async () => {
+        const tokens = localStorage.getItem('authTokens');
+        if (!tokens) return;
+        try {
+            const parsed = JSON.parse(tokens);
+            const response = await fetch(`${API_URL}/adm/get_user_profile`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${parsed.access}`
+                },
+                body: JSON.stringify({ user_id: user?.user_id || user?.id })
+            });
+
+            if (response.ok) {
+                const resData = await response.json();
+                if (resData.success && resData.user) {
+                    setUser(prev => ({
+                        ...prev,
+                        ...resData.user
+                    }));
+                    parsed.user = resData.user;
+                    localStorage.setItem('authTokens', JSON.stringify(parsed));
+                }
+            }
+        } catch (err) {
+            console.error('Failed to refresh user profile:', err);
+        }
+    }, [user?.user_id, user?.id]);
 
     // =========================
     // LOGIN
@@ -59,16 +107,26 @@ export const AuthProvider = ({ children }) => {
             }
 
             const data = await response.json();
+            const decoded = jwtDecode(data.access);
+            const userObj = {
+                ...decoded,
+                ...(data.user || {})
+            };
 
             setAuthTokens(data);
-            setUser(jwtDecode(data.access));
+            setUser(userObj);
 
             localStorage.setItem(
                 'authTokens',
                 JSON.stringify(data)
             );
 
-            history('/dashboard');
+            // If user has dashboard permission or is Admin, navigate to /dashboard; otherwise /profile
+            if (userObj.role === 'Admin' || (Array.isArray(userObj.permissions) && userObj.permissions.includes('dashboard'))) {
+                history('/dashboard');
+            } else {
+                history('/profile');
+            }
 
         } catch (error) {
             console.error('Login failed:', error);
@@ -295,6 +353,8 @@ export const AuthProvider = ({ children }) => {
                 Delete,
                 Fetch,
                 update,
+                hasPermission,
+                refreshUserProfile,
                 API_URL,
             }}
         >

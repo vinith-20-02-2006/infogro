@@ -1,0 +1,6 @@
+/* Scoped styles for User Management within the Sneat Bootstrap template */
+.card .table th {
+  text-transform: uppercase;
+  font-size: 0.75rem;
+  letter-spacing: 1px;
+}

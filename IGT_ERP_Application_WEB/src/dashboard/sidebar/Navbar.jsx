@@ -4,7 +4,7 @@ import AuthContext from "../../services/AuthContext";
 import Sidebar from "./Sidebar";
 
 const Navbar = () => {
-  const { logoutUser } = useContext(AuthContext);
+  const { user, logoutUser } = useContext(AuthContext);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false); // State for dropdown menu
 
@@ -20,12 +20,6 @@ const Navbar = () => {
     setDropdownOpen(prevDropdownOpen => !prevDropdownOpen); // Toggle dropdown state
   };
 
-  const handleOutsideClick = (e) => {
-    if (sidebarOpen && !e.target.closest("#layout-menu")) {
-      setSidebarOpen(false);
-    }
-  };
-
   return (
     <div className={`layout-menu-100vh ${sidebarOpen ? "layout-menu-expanded" : ""}`}>
       {sidebarOpen && <Sidebar />}
@@ -39,14 +33,14 @@ const Navbar = () => {
          
           {/* Dropdown */}
           <li className={`nav-item navbar-dropdown dropdown-user dropdown ${dropdownOpen ? "show" : ""}`}>
-            <i className="nav-link dropdown-toggle hide-arrow" href="" onClick={toggleDropdown}>
+            <span className="nav-link dropdown-toggle hide-arrow" style={{ cursor: "pointer" }} onClick={toggleDropdown}>
               <div className="avatar avatar-online">
-                <img src="" alt="s" className="w-px-40 h-auto rounded-circle" />
+                <img src="./1.png" alt="s" className="w-px-40 h-auto rounded-circle" />
               </div>
-            </i>
+            </span>
             <ul className={`dropdown-menu dropdown-menu-end ${dropdownOpen ? "show" : ""}`} style={{ marginLeft: '-115px' }}>
               <li>
-                <i className="dropdown-item" >
+                <div className="dropdown-item">
                   <div className="d-flex">
                     <div className="flex-shrink-0 me-3">
                       <div className="avatar avatar-online">
@@ -54,37 +48,37 @@ const Navbar = () => {
                       </div>
                     </div>
                     <div className="flex-grow-1">
-                      <span className="fw-semibold d-block">John Doe</span>
-                      <small className="text-muted">Admin</small>
+                      <span className="fw-semibold d-block">{user?.full_name || user?.username || "John Doe"}</span>
+                      <small className="text-muted">{user?.role || "Admin"}</small>
                     </div>
                   </div>
-                </i>
+                </div>
               </li>
               <li><div className="dropdown-divider"></div></li>
               <li>
-                <i className="dropdown-item" >
+                <a className="dropdown-item" href="/profile">
                   <i className="bx bx-user me-2"></i>
                   <span className="align-middle">My Profile</span>
-                </i>
+                </a>
               </li>
               <li>
-                <i className="dropdown-item" >
+                <span className="dropdown-item" style={{ cursor: "pointer" }}>
                   <i className="bx bx-cog me-2"></i>
                   <span className="align-middle">Settings</span>
-                </i>
+                </span>
               </li>
               <li>
-                <i className="dropdown-item" >
+                <span className="dropdown-item" style={{ cursor: "pointer" }}>
                   <span className="d-flex align-items-center align-middle">
                     <i className="flex-shrink-0 bx bx-credit-card me-2"></i>
                     <span className="flex-grow-1 align-middle">Billing</span>
                     <span className="flex-shrink-0 badge badge-center rounded-pill bg-danger w-px-20 h-px-20">4</span>
                   </span>
-                </i>
+                </span>
               </li>
               <li><div className="dropdown-divider"></div></li>
               <li>
-                <button className="dropdown-item" href="auth-login-basic.html" onClick={handleUpdate}>
+                <button className="dropdown-item" onClick={handleUpdate}>
                   <i className="bx bx-power-off me-2"></i>
                   <span className="align-middle">Log Out</span>
                 </button>

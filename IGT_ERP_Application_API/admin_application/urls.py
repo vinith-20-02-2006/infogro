@@ -7,6 +7,10 @@ router = routers.DefaultRouter()
 urlpatterns = router.urls
 urlpatterns += [
     path('token', user_views.CreateToken.as_view(), name='token_obtain_pair'),
+    path('get_user_profile', user_views.GetCurrentUserProfile.as_view(), name='get_user_profile'),
+    path('create_user', user_views.CreateUser.as_view(), name='create_user'),
+    path('list_users', user_views.ListUsers.as_view(), name='list_users'),
+    path('update_user_permissions', user_views.UpdateUserPermissions.as_view(), name='update_user_permissions'),
     # course
     path('course_create', Course_views.CreateCourse.as_view(), name='course_create'),
     path('get_course_datail', Course_views.GetCourseDetail.as_view(), name='get_course_datail'),
