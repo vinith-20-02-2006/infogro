@@ -6,19 +6,36 @@ from rest_framework import routers
 router = routers.DefaultRouter()
 urlpatterns = router.urls
 urlpatterns += [
+    # Auth & Profile
     path('token', user_views.CreateToken.as_view(), name='token_obtain_pair'),
     path('get_user_profile', user_views.GetCurrentUserProfile.as_view(), name='get_user_profile'),
-    path('create_user', user_views.CreateUser.as_view(), name='create_user'),
-    path('list_users', user_views.ListUsers.as_view(), name='list_users'),
-    path('update_user_permissions', user_views.UpdateUserPermissions.as_view(), name='update_user_permissions'),
-    # course
+
+    # Users & Roles Management (Phase 2, 4, 5, 7, 8)
+    path('user_roles_summary', user_views.UserRolesSummaryView.as_view(), name='user_roles_summary'),
+    path('list_all_users', user_views.ListAllUsersView.as_view(), name='list_all_users'),
+    path('list_users', user_views.ListAllUsersView.as_view(), name='list_users'),  # Legacy alias
+    path('toggle_user_status', user_views.ToggleUserStatusView.as_view(), name='toggle_user_status'),
+    path('role_permissions', user_views.RolePermissionsView.as_view(), name='role_permissions'),
+    path('reset_role_permissions', user_views.ResetRolePermissionsView.as_view(), name='reset_role_permissions'),
+    path('update_user_override_permissions', user_views.UpdateUserOverridePermissionsView.as_view(), name='update_user_override_permissions'),
+    path('update_user_permissions', user_views.UpdateUserOverridePermissionsView.as_view(), name='update_user_permissions'),  # Legacy alias
+
+    # Staff & Student Registration Processes (Phase 2)
+    path('staff/register', user_views.RegisterStaffView.as_view(), name='register_staff'),
+    path('student/register', user_views.RegisterStudentView.as_view(), name='register_student'),
+
+    # Department & Designation Management (Phase 3)
+    path('departments', user_views.DepartmentView.as_view(), name='departments'),
+    path('designations', user_views.DesignationView.as_view(), name='designations'),
+
+    # Course
     path('course_create', Course_views.CreateCourse.as_view(), name='course_create'),
     path('get_course_datail', Course_views.GetCourseDetail.as_view(), name='get_course_datail'),
     path('fetch_course_datail', Course_views.FetchCourseDetail.as_view(), name='fetch_course_datail'),
     path('update_course_datail', Course_views.UpdateCourseDetail.as_view(), name='update_course_datail'),
     path('delete_course_datail', Course_views.DeleteCourseDetail.as_view(), name='delete_course_datail'),
 
-    # certificate
+    # Certificate
     path('list_certificates', Certificate_views.ListCertificates.as_view(), name='list_certificates'),
     path('search_eligible_students', Certificate_views.SearchEligibleStudents.as_view(), name='search_eligible_students'),
     path('generate_certificate', Certificate_views.GenerateCertificate.as_view(), name='generate_certificate'),

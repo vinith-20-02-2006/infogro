@@ -1,6 +1,129 @@
-/* Scoped styles for User Management within the Sneat Bootstrap template */
-.card .table th {
-  text-transform: uppercase;
+/* Users & Roles Module - Sneat Bootstrap 5 Custom Styling */
+
+.users-roles-container {
+  padding: 1.5rem;
+}
+
+/* Summary Cards */
+.summary-card {
+  border: 0;
+  border-radius: 0.5rem;
+  box-shadow: 0 2px 6px 0 rgba(67, 89, 113, 0.1);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.summary-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px 0 rgba(67, 89, 113, 0.16);
+}
+
+.summary-card .card-body {
+  padding: 1.25rem;
+}
+
+.summary-card h3 {
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: #566a7f;
+}
+
+/* Table Card Header */
+.card-header-flex {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  padding: 1.25rem 1.5rem;
+}
+
+/* Scrollable permissions table */
+.permissions-scroll-pane {
+  max-height: 480px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+
+.permissions-scroll-pane::-webkit-scrollbar {
+  width: 6px;
+}
+
+.permissions-scroll-pane::-webkit-scrollbar-thumb {
+  background-color: rgba(67, 89, 113, 0.2);
+  border-radius: 3px;
+}
+
+.permissions-table th {
   font-size: 0.75rem;
-  letter-spacing: 1px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-weight: 600;
+  background-color: #f5f5f9;
+}
+
+.permissions-table td {
+  padding: 0.65rem 0.75rem;
+  vertical-align: middle;
+}
+
+/* Action button icons */
+.btn-action-icon {
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.375rem;
+  border: 1px solid #d9dee3;
+  background-color: #fff;
+  color: #697a8d;
+  transition: all 0.15s ease-in-out;
+}
+
+.btn-action-icon:hover {
+  background-color: #f5f5f9;
+  border-color: #696cff;
+  color: #696cff;
+}
+
+.btn-action-icon.danger:hover {
+  border-color: #ff3e1d;
+  color: #ff3e1d;
+}
+
+/* Modal styling */
+.modal-backdrop-custom {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1060;
+}
+
+.modal-dialog-custom {
+  background: #ffffff;
+  border-radius: 0.5rem;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+  width: 90%;
+  max-width: 680px;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.modal-dialog-lg-custom {
+  background: #ffffff;
+  border-radius: 0.5rem;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+  width: 95%;
+  max-width: 840px;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
 }

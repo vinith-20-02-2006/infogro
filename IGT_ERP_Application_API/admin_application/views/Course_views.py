@@ -6,6 +6,7 @@ from rest_framework.response import Response
 from rest_framework import status
 
 from ..services.Course_services import Course_services
+from ..services import user_services
 
 
 logger = logging.getLogger('django')
@@ -46,6 +47,7 @@ class CreateCourse(APIView):
             return value
 
     def post(self, request):
+        user_services.verify_user_permission(request, 'course', 'add')
 
         serializer = self.InputSerializer(
             data=request.data
@@ -97,6 +99,7 @@ class GetCourseDetail(APIView):
         )
 
     def post(self, request):
+        user_services.verify_user_permission(request, 'course', 'view')
 
         serializer = self.InputSerializer(
             data=request.data
@@ -132,6 +135,7 @@ class GetCourseDetail(APIView):
 class FetchCourseDetail(APIView):
 
     def post(self, request):
+        user_services.verify_user_permission(request, 'course', 'view')
 
         result = Course_services.Fetch_course_detail()
 
@@ -181,6 +185,7 @@ class UpdateCourseDetail(APIView):
             return value
 
     def post(self, request):
+        user_services.verify_user_permission(request, 'course', 'edit')
 
         serializer = self.InputSerializer(
             data=request.data
@@ -240,6 +245,7 @@ class DeleteCourseDetail(APIView):
         )
 
     def post(self, request):
+        user_services.verify_user_permission(request, 'course', 'delete')
 
         serializer = self.InputSerializer(
             data=request.data

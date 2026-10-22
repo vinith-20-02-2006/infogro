@@ -6,8 +6,7 @@ const PrivateRoute = ({ ...rest }) => {
   const { user } = useContext(AuthContext);
 
   // Check if the user is authenticated
-  const isAuthenticated = !!user && !!user.jti;
-  // localStorage.removeItem('authTokens');
+  const isAuthenticated = !!user && (!!user.jti || !!user.user_id || !!user.id || !!user.username);
   
   return isAuthenticated ? (
     <Outlet {...rest} />

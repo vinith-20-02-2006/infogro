@@ -1,130 +1,405 @@
 [
   {
-    "main": "Master",
-    "title": "Course",
-    "path": "/course",
-    "active" :"btn-primary",
-    "element":"<Course/>",
-    "icon": "menu-icon tf-icons bx bx-book-bookmark",
-    "iconopen": "menu-link "
+    "main": "Dashboard",
+    "title": "Dashboard",
+    "key": "dashboard",
+    "path": "/dashboard",
+    "active": "btn-primary",
+    "icon": "menu-icon tf-icons bx bx-home-circle",
+    "iconopen": "menu-link"
   },
   {
-    "title": "Certificates",
-    "path": "/adm",
+    "main": "Master",
+    "title": "Course",
+    "key": "course",
     "active": "btn-primary",
-    "element": "<Certificate/>",
-    "icon": "menu-icon tf-icons bx bx-award",
-    "iconopen": "menu-link "
+    "icon": "menu-icon tf-icons bx bx-book-open",
+    "iconopen": "menu-link menu-toggle",
+    "subNav": [
+      {
+        "title": "Course Module",
+        "key": "coursemodule",
+        "path": "/coursemodule",
+        "icon": "bx bx-category"
+      },
+      {
+        "title": "Course",
+        "key": "course",
+        "path": "/course",
+        "icon": "bx bx-edit"
+      },
+      {
+        "title": "Course Fees",
+        "key": "coursefees",
+        "path": "/coursefees",
+        "icon": "bx bx-rupee"
+      }
+    ]
   },
-
-   
-   
-    
-    {
-      "main": "Transaction",
-      "title": "About Us",
-      "active" :"btn-primary",
-      "icon": "menu-icon tf-icons bx bx-block",
-      "iconopen": "menu-link menu-toggle",
-      "subNav": [
-        {
-          "title": "Our Aim",
-          "path": "/about-us/aim",
-          "icon": "<IoIcons.IoIosPaper />"
-        },
-        {
-          "title": "Our Vision",
-          "path": "/about-us/vision",
-          "icon": "<IoIcons.IoIosPaper />"
-        }
-      ]
-    },
-    {
-      "title": "Support",
-      "path": "/support",
-      "active" :"btn-primary",
-      "icon": "menu-icon tf-icons bx bx-block",
-      "iconopen": "menu-link"
-    },
-
-    {
-      "main": "Payment",
-      "title": "About Us",
-      "active" :"btn-primary",
-      "icon": "menu-icon tf-icons bx bx-block",
-      "iconopen": "menu-link menu-toggle",
-      "subNav": [
-        {
-          "title": "Our Aim",
-          "path": "/about-us/aim",
-          "icon": "<IoIcons.IoIosPaper />"
-        },
-        {
-          "title": "Our Vision",
-          "path": "/about-us/vision",
-          "icon": "<IoIcons.IoIosPaper />"
-        }
-      ]
-    },
-    {
-      "title": "Support",
-      "path": "/support",
-      "active" :"btn-primary",
-      "icon": "menu-icon tf-icons bx bx-block",
-      "iconopen": "menu-link"
-    },
-
-    {
-      "main": "Inventory",
-      "title": "About Us",
-      "active" :"btn-primary",
-      "icon": "menu-icon tf-icons bx bx-block",
-      "iconopen": "menu-link menu-toggle",
-      "subNav": [
-        {
-          "title": "Our Aim",
-          "path": "/about-us/aim",
-          "icon": "<IoIcons.IoIosPaper />"
-        },
-        {
-          "title": "Our Vision",
-          "path": "/about-us/vision",
-          "icon": "<IoIcons.IoIosPaper />"
-        }
-      ]
-    },
-    {
-      "title": "Support",
-      "path": "/support",
-      "active" :"btn-primary",
-      "icon": "menu-icon tf-icons bx bx-block",
-      "iconopen": "menu-link"
-    },
-
-    {
-      "main": "Report",
-      "title": "About Us",
-      "active" :"btn-primary",
-      "icon": "menu-icon tf-icons bx bx-block",
-      "iconopen": "menu-link menu-toggle",
-      "subNav": [
-        {
-          "title": "Our Aim",
-          "path": "/about-us/aim",
-          "icon": "<IoIcons.IoIosPaper />"
-        },
-        {
-          "title": "Our Vision",
-          "path": "/about-us/vision",
-          "icon": "<IoIcons.IoIosPaper />"
-        }
-      ]
-    },
-    {
-      "title": "Support",
-      "path": "/support",
-      "active" :"btn-primary",
-      "icon": "menu-icon tf-icons bx bx-block",
-      "iconopen": "menu-link"
-    }
-  ]
+  {
+    "title": "Department",
+    "key": "department",
+    "path": "/department",
+    "active": "btn-primary",
+    "icon": "menu-icon tf-icons bx bx-buildings",
+    "iconopen": "menu-link"
+  },
+  {
+    "title": "Designation",
+    "key": "designation",
+    "path": "/designation",
+    "active": "btn-primary",
+    "icon": "menu-icon tf-icons bx bx-id-card",
+    "iconopen": "menu-link"
+  },
+  {
+    "title": "Batch Creation",
+    "key": "batch_creation",
+    "path": "/batch/creation",
+    "active": "btn-primary",
+    "icon": "menu-icon tf-icons bx bx-layer-plus",
+    "iconopen": "menu-link"
+  },
+  {
+    "main": "Admission",
+    "title": "Enquiry",
+    "key": "enquiry",
+    "path": "/enquiry",
+    "active": "btn-primary",
+    "icon": "menu-icon tf-icons bx bx-message-square-detail",
+    "iconopen": "menu-link"
+  },
+  {
+    "title": "Enquiry Follow-up",
+    "key": "enquiry_followup",
+    "path": "/enquiry/followup",
+    "active": "btn-primary",
+    "icon": "menu-icon tf-icons bx bx-phone-call",
+    "iconopen": "menu-link"
+  },
+  {
+    "title": "Registration",
+    "key": "registration",
+    "path": "/registration",
+    "active": "btn-primary",
+    "icon": "menu-icon tf-icons bx bx-user-plus",
+    "iconopen": "menu-link"
+  },
+  {
+    "main": "Academic",
+    "title": "Batch Scheduling",
+    "key": "batch_scheduling",
+    "path": "/batch/scheduling",
+    "active": "btn-primary",
+    "icon": "menu-icon tf-icons bx bx-calendar",
+    "iconopen": "menu-link"
+  },
+  {
+    "title": "Batch Transfer",
+    "key": "batch_transfer",
+    "path": "/batch/transfer",
+    "active": "btn-primary",
+    "icon": "menu-icon tf-icons bx bx-transfer",
+    "iconopen": "menu-link"
+  },
+  {
+    "title": "Student Attendance",
+    "key": "student_attendance",
+    "path": "/student/attendance",
+    "active": "btn-primary",
+    "icon": "menu-icon tf-icons bx bx-calendar-check",
+    "iconopen": "menu-link"
+  },
+  {
+    "title": "Student Academic Process",
+    "key": "student_academic_process",
+    "path": "/student/academic-process",
+    "active": "btn-primary",
+    "icon": "menu-icon tf-icons bx bx-book-reader",
+    "iconopen": "menu-link"
+  },
+  {
+    "title": "Exams",
+    "key": "exams",
+    "active": "btn-primary",
+    "icon": "menu-icon tf-icons bx bx-task",
+    "iconopen": "menu-link menu-toggle",
+    "subNav": [
+      {
+        "title": "Exam Schedule",
+        "key": "exam_schedule",
+        "path": "/exam/schedule",
+        "icon": "bx bx-calendar-event"
+      },
+      {
+        "title": "Marks Entry",
+        "key": "marks_entry",
+        "path": "/exam/marks",
+        "icon": "bx bx-edit-alt"
+      },
+      {
+        "title": "Results",
+        "key": "results",
+        "path": "/exam/results",
+        "icon": "bx bx-poll"
+      },
+      {
+        "title": "Grade Sheet",
+        "key": "gradesheet",
+        "path": "/exam/gradesheet",
+        "icon": "bx bx-file"
+      }
+    ]
+  },
+  {
+    "title": "Certificate",
+    "key": "certificate",
+    "active": "btn-primary",
+    "icon": "menu-icon tf-icons bx bx-award",
+    "iconopen": "menu-link menu-toggle",
+    "subNav": [
+      {
+        "title": "Certificate Generation",
+        "key": "certificate_generation",
+        "path": "/adm",
+        "icon": "bx bx-award"
+      },
+      {
+        "title": "Mail Generation",
+        "key": "mail_generation",
+        "path": "/certificate/mail-generation",
+        "icon": "bx bx-mail-send"
+      },
+      {
+        "title": "Workshop Template",
+        "key": "workshop_template",
+        "path": "/certificate/template-workshop",
+        "icon": "bx bx-chalkboard"
+      },
+      {
+        "title": "Letter Head Template",
+        "key": "letterhead_template",
+        "path": "/certificate/template-letterhead",
+        "icon": "bx bx-file-blank"
+      },
+      {
+        "title": "Certificate Verification",
+        "key": "certificate_verification",
+        "path": "/certificate/verification",
+        "icon": "bx bx-check-shield"
+      },
+      {
+        "title": "ID Card Generation",
+        "key": "id_card_generation",
+        "path": "/certificate/id-card",
+        "icon": "bx bx-id-card"
+      }
+    ]
+  },
+  {
+    "main": "Payment",
+    "title": "Billing / Invoice",
+    "key": "billing",
+    "path": "/billing",
+    "active": "btn-primary",
+    "icon": "menu-icon tf-icons bx bx-receipt",
+    "iconopen": "menu-link"
+  },
+  {
+    "title": "Dues & Reminders",
+    "key": "dues",
+    "path": "/payment/dues",
+    "active": "btn-primary",
+    "icon": "menu-icon tf-icons bx bx-bell",
+    "iconopen": "menu-link"
+  },
+  {
+    "main": "Placement",
+    "title": "Companies",
+    "key": "companies",
+    "path": "/placement/companies",
+    "active": "btn-primary",
+    "icon": "menu-icon tf-icons bx bx-building-house",
+    "iconopen": "menu-link"
+  },
+  {
+    "title": "Job Openings",
+    "key": "placement_openings",
+    "path": "/placement/openings",
+    "active": "btn-primary",
+    "icon": "menu-icon tf-icons bx bx-briefcase",
+    "iconopen": "menu-link"
+  },
+  {
+    "title": "Student Applications",
+    "key": "student_applications",
+    "path": "/placement/applications",
+    "active": "btn-primary",
+    "icon": "menu-icon tf-icons bx bx-file-find",
+    "iconopen": "menu-link"
+  },
+  {
+    "title": "Placed Students",
+    "key": "placed_students",
+    "path": "/placement/placed",
+    "active": "btn-primary",
+    "icon": "menu-icon tf-icons bx bx-trophy",
+    "iconopen": "menu-link"
+  },
+  {
+    "main": "Staff",
+    "title": "Staff Register",
+    "key": "staff_register",
+    "path": "/staff/register",
+    "active": "btn-primary",
+    "icon": "menu-icon tf-icons bx bx-user-pin",
+    "iconopen": "menu-link"
+  },
+  {
+    "title": "Staff Attendance",
+    "key": "staff_attendance",
+    "path": "/staff/attendance",
+    "active": "btn-primary",
+    "icon": "menu-icon tf-icons bx bx-user-check",
+    "iconopen": "menu-link"
+  },
+  {
+    "title": "Staff Leave",
+    "key": "staff_leave",
+    "path": "/staff/leave",
+    "active": "btn-primary",
+    "icon": "menu-icon tf-icons bx bx-calendar-minus",
+    "iconopen": "menu-link"
+  },
+  {
+    "title": "Payslip Generation",
+    "key": "payslip_generation",
+    "path": "/staff/payslip",
+    "active": "btn-primary",
+    "icon": "menu-icon tf-icons bx bx-money",
+    "iconopen": "menu-link"
+  },
+  {
+    "main": "Accounts",
+    "title": "Income",
+    "key": "income",
+    "path": "/accounts/income",
+    "active": "btn-primary",
+    "icon": "menu-icon tf-icons bx bx-trending-up",
+    "iconopen": "menu-link"
+  },
+  {
+    "title": "Expenses",
+    "key": "expenses",
+    "path": "/accounts/expenses",
+    "active": "btn-primary",
+    "icon": "menu-icon tf-icons bx bx-trending-down",
+    "iconopen": "menu-link"
+  },
+  {
+    "title": "Vendors",
+    "key": "vendors",
+    "path": "/accounts/vendors",
+    "active": "btn-primary",
+    "icon": "menu-icon tf-icons bx bx-store",
+    "iconopen": "menu-link"
+  },
+  {
+    "main": "Report",
+    "title": "Enquiry Report",
+    "key": "reports_enquiry",
+    "path": "/reports/enquiry",
+    "active": "btn-primary",
+    "icon": "menu-icon tf-icons bx bx-comment-detail",
+    "iconopen": "menu-link"
+  },
+  {
+    "title": "Fees Report",
+    "key": "reports_fees",
+    "path": "/reports/fees",
+    "active": "btn-primary",
+    "icon": "menu-icon tf-icons bx bx-wallet",
+    "iconopen": "menu-link"
+  },
+  {
+    "title": "Attendance Report",
+    "key": "reports_attendance",
+    "path": "/reports/attendance",
+    "active": "btn-primary",
+    "icon": "menu-icon tf-icons bx bx-calendar-check",
+    "iconopen": "menu-link"
+  },
+  {
+    "title": "Collection Report",
+    "key": "reports_collection",
+    "path": "/reports/collection",
+    "active": "btn-primary",
+    "icon": "menu-icon tf-icons bx bx-coin-stack",
+    "iconopen": "menu-link"
+  },
+  {
+    "title": "Dues Report",
+    "key": "reports_dues",
+    "path": "/reports/dues",
+    "active": "btn-primary",
+    "icon": "menu-icon tf-icons bx bx-error-circle",
+    "iconopen": "menu-link"
+  },
+  {
+    "title": "Batch Report",
+    "key": "reports_batch",
+    "path": "/reports/batch",
+    "active": "btn-primary",
+    "icon": "menu-icon tf-icons bx bx-layer",
+    "iconopen": "menu-link"
+  },
+  {
+    "title": "Trainer Report",
+    "key": "reports_trainer",
+    "path": "/reports/trainer",
+    "active": "btn-primary",
+    "icon": "menu-icon tf-icons bx bx-chalkboard",
+    "iconopen": "menu-link"
+  },
+  {
+    "title": "Exam Report",
+    "key": "reports_exam",
+    "path": "/reports/exam",
+    "active": "btn-primary",
+    "icon": "menu-icon tf-icons bx bx-poll",
+    "iconopen": "menu-link"
+  },
+  {
+    "title": "Placement Report",
+    "key": "reports_placement",
+    "path": "/reports/placement",
+    "active": "btn-primary",
+    "icon": "menu-icon tf-icons bx bx-briefcase-alt-2",
+    "iconopen": "menu-link"
+  },
+  {
+    "title": "Income & Expense Report",
+    "key": "reports_income_expense",
+    "path": "/reports/income-expense",
+    "active": "btn-primary",
+    "icon": "menu-icon tf-icons bx bx-bar-chart-alt-2",
+    "iconopen": "menu-link"
+  },
+  {
+    "main": "Settings",
+    "title": "Users & Roles",
+    "key": "settings_users",
+    "path": "/settings/users",
+    "active": "btn-primary",
+    "icon": "menu-icon tf-icons bx bx-shield-quarter",
+    "iconopen": "menu-link"
+  },
+  {
+    "title": "Backup",
+    "key": "settings_backup",
+    "path": "/settings/backup",
+    "active": "btn-primary",
+    "icon": "menu-icon tf-icons bx bx-cloud-download",
+    "iconopen": "menu-link"
+  }
+]

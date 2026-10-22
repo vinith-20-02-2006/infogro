@@ -9,6 +9,7 @@ from rest_framework.views import APIView
 
 from .models import Certificate
 from .services import Certificate_services
+from admin_application.services import user_services
 
 from rest_framework.permissions import AllowAny
 
@@ -23,6 +24,7 @@ class ListCertificates(APIView):
     authentication_classes = []
 
     def get(self, request):
+        user_services.verify_user_permission(request, 'certificate', 'view')
         try:
             status_info = Certificate_services.get_auto_certificate_status()
             if status_info.get("auto_generate"):
@@ -86,6 +88,7 @@ class GenerateCertificate(APIView):
         student_photo = serializers.CharField(required=False, allow_blank=True, allow_null=True)
 
     def post(self, request):
+        user_services.verify_user_permission(request, 'certificate', 'add')
         serializer = self.InputSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         data = serializer.validated_data
@@ -133,6 +136,7 @@ class UpdateCertificate(APIView):
         student_photo = serializers.CharField(required=False, allow_blank=True, allow_null=True)
 
     def put(self, request):
+        user_services.verify_user_permission(request, 'certificate', 'edit')
         serializer = self.InputSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         data = serializer.validated_data
@@ -245,6 +249,7 @@ class DeleteCertificate(APIView):
         register_id = serializers.CharField(required=False, allow_blank=True, allow_null=True)
 
     def post(self, request):
+        user_services.verify_user_permission(request, 'certificate', 'delete')
         target_id = None
         if isinstance(request.data, dict):
             target_id = request.data.get('certificate_id') or request.data.get('register_id') or request.data.get('Course_id')

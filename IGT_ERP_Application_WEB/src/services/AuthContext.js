@@ -42,11 +42,37 @@ export const AuthProvider = ({ children }) => {
     // =========================
     // PERMISSION HELPER
     // =========================
-    const hasPermission = useCallback((permissionKey) => {
+    const hasPermission = useCallback((permissionKey, action = 'view') => {
         if (!user) return false;
         if (user.role === 'Admin' || user.is_superuser) return true;
         if (permissionKey === 'profile') return true;
-        return Array.isArray(user.permissions) && user.permissions.includes(permissionKey);
+        if (!user.permissions) return false;
+
+        // Alias user_management and settings_users
+        let effectiveKey = permissionKey;
+        if (!user.permissions[effectiveKey]) {
+            if (permissionKey === 'settings_users' && user.permissions['user_management']) {
+                effectiveKey = 'user_management';
+            } else if (permissionKey === 'user_management' && user.permissions['settings_users']) {
+                effectiveKey = 'settings_users';
+            }
+        }
+
+        // Legacy array check
+        if (Array.isArray(user.permissions)) {
+            return user.permissions.includes(effectiveKey);
+        }
+
+        // Granular dictionary check: { view, add, edit, delete }
+        if (typeof user.permissions === 'object') {
+            const menuPerm = user.permissions[effectiveKey];
+            if (!menuPerm) return false;
+            if (typeof menuPerm === 'boolean') return menuPerm;
+            if (typeof menuPerm === 'object') {
+                return !!menuPerm[action];
+            }
+        }
+        return false;
     }, [user]);
 
     // =========================
@@ -120,9 +146,17 @@ export const AuthProvider = ({ children }) => {
                 'authTokens',
                 JSON.stringify(data)
             );
+            if (data.access) {
+                localStorage.setItem('access_token', data.access);
+            }
 
-            // If user has dashboard permission or is Admin, navigate to /dashboard; otherwise /profile
-            if (userObj.role === 'Admin' || (Array.isArray(userObj.permissions) && userObj.permissions.includes('dashboard'))) {
+            // Check if user has dashboard permission
+            const canViewDashboard = userObj.role === 'Admin' || userObj.is_superuser || (
+                Array.isArray(userObj.permissions) ? userObj.permissions.includes('dashboard') :
+                (userObj.permissions?.dashboard?.view ?? false)
+            );
+
+            if (canViewDashboard) {
                 history('/dashboard');
             } else {
                 history('/profile');
@@ -143,6 +177,7 @@ export const AuthProvider = ({ children }) => {
         setUser(null);
 
         localStorage.removeItem('authTokens');
+        localStorage.removeItem('access_token');
 
         history('/');
     }, [history]);

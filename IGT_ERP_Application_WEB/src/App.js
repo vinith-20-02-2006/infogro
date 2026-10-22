@@ -1,4 +1,4 @@
-import React, { useContext } from 'react';
+import React, { useContext, useMemo } from 'react';
 import './App.css';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import AuthContext, { AuthProvider } from './services/AuthContext';
@@ -11,6 +11,12 @@ import Navbar from './dashboard/sidebar/Navbar';
 import Certificate from './dashboard/certificate/Certificate';
 import Profile from './dashboard/profile/Profile';
 import UserManagement from './dashboard/usermanagement/UserManagement';
+import StaffRegister from './dashboard/staff/StaffRegister';
+import StudentRegister from './dashboard/admission/StudentRegister';
+import DepartmentDesignation from './dashboard/master/DepartmentDesignation';
+import ModulePage from './dashboard/common/ModulePage';
+import AccessDenied from './dashboard/common/AccessDenied';
+import SidebarData from './assets/json/sidebar.json';
 
 function App() {
   return (
@@ -20,7 +26,10 @@ function App() {
           <div className="layout-wrapper layout-content-navbar">
             <div className="layout-container">
               <Routes>
-                <Route path="/" element={<Login />} />
+                {/* Public Login Route - Redirects authenticated users directly to dashboard/profile */}
+                <Route path="/" element={<PublicLoginRoute />} />
+
+                {/* All Protected ERP Routes */}
                 <Route path="/*" element={<ProtectedRoutes />} />
               </Routes>
             </div>
@@ -31,13 +40,155 @@ function App() {
   );
 }
 
+// Redirects logged in users to avoid redundant login screens
+function PublicLoginRoute() {
+  const { user, hasPermission } = useContext(AuthContext);
+
+  if (user) {
+    const canDashboard = hasPermission('dashboard');
+    return <Navigate to={canDashboard ? "/dashboard" : "/profile"} replace />;
+  }
+
+  return <Login />;
+}
+
 function ProtectedRoutes() {
   const { hasPermission } = useContext(AuthContext);
 
+  // Flatten sidebar.json into route definitions
+  const allRoutes = useMemo(() => {
+    const routes = [];
+    const seenPaths = new Set();
+
+    SidebarData.forEach((item) => {
+      if (item.subNav && item.subNav.length > 0) {
+        item.subNav.forEach((sub) => {
+          if (!seenPaths.has(sub.path)) {
+            seenPaths.add(sub.path);
+            routes.push({
+              path: sub.path,
+              key: sub.key,
+              title: sub.title,
+              section: item.title,
+              icon: sub.icon || item.icon,
+            });
+          }
+        });
+      } else {
+        if (!seenPaths.has(item.path)) {
+          seenPaths.add(item.path);
+          routes.push({
+            path: item.path,
+            key: item.key,
+            title: item.title,
+            section: item.main || 'Module',
+            icon: item.icon,
+          });
+        }
+      }
+    });
+
+    return routes;
+  }, []);
+
+  // Determine which component renders for a given path
+  const renderRouteElement = (route) => {
+    const p = route.path;
+
+    // 1. Dashboard
+    if (p === '/dashboard') {
+      return hasPermission('dashboard') ? (
+        <Dashboard />
+      ) : (
+        <AccessDenied moduleName="Dashboard" />
+      );
+    }
+
+    // 2. Profile
+    if (p === '/profile') {
+      return <Profile />;
+    }
+
+    // 3. Course Details
+    if (p === '/course') {
+      return hasPermission('course') ? (
+        <Course />
+      ) : (
+        <AccessDenied moduleName="Course" />
+      );
+    }
+
+    // 4. Certificates & Certificate Generation
+    if (p === '/adm' || p === '/certificate') {
+      const canCert = hasPermission('certificate') || hasPermission('certificate_generation');
+      return canCert ? (
+        <Certificate />
+      ) : (
+        <AccessDenied moduleName="Certificate" />
+      );
+    }
+
+    // 5. Users & Roles
+    if (p === '/settings/users' || p === '/user-management') {
+      const canUserMgmt = hasPermission('settings_users') || hasPermission('user_management');
+      return canUserMgmt ? (
+        <UserManagement />
+      ) : (
+        <AccessDenied moduleName="Users & Roles" />
+      );
+    }
+
+    // 6. Staff Registration
+    if (p === '/staff/register') {
+      return hasPermission('staff_register') ? (
+        <StaffRegister />
+      ) : (
+        <AccessDenied moduleName="Staff Registration" />
+      );
+    }
+
+    // 7. Student Registration
+    if (p === '/registration') {
+      return hasPermission('registration') ? (
+        <StudentRegister />
+      ) : (
+        <AccessDenied moduleName="Registration" />
+      );
+    }
+
+    // 8. Department & Designation
+    if (p === '/department') {
+      return hasPermission('department') ? (
+        <DepartmentDesignation />
+      ) : (
+        <AccessDenied moduleName="Department" />
+      );
+    }
+    if (p === '/designation') {
+      return hasPermission('designation') ? (
+        <DepartmentDesignation />
+      ) : (
+        <AccessDenied moduleName="Designation" />
+      );
+    }
+
+    // 9. All other ERP modules from sidebar.json
+    const canView = hasPermission(route.key, 'view');
+    if (!canView) {
+      return <AccessDenied moduleName={route.title} />;
+    }
+
+    return (
+      <ModulePage
+        title={route.title}
+        category={route.section}
+        menuKey={route.key}
+        icon={route.icon}
+      />
+    );
+  };
+
   const canDashboard = hasPermission('dashboard');
-  const canCourse = hasPermission('course');
-  const canCertificate = hasPermission('certificate');
-  const canUserMgmt = hasPermission('user_management');
 
   return (
     <>
@@ -47,38 +198,41 @@ function ProtectedRoutes() {
         <div className="content-wrapper">
           <Routes>
             <Route element={<PrivateRoute />}>
-              {/* Dashboard Route: requires 'dashboard' permission, otherwise redirects to /profile */}
-              <Route
-                path="/dashboard"
-                element={canDashboard ? <Dashboard /> : <Navigate to="/profile" replace />}
-              />
-
-              {/* Profile Route: visible and accessible to all authenticated users */}
+              {/* Profile Route: Always accessible to authenticated users */}
               <Route path="/profile" element={<Profile />} />
 
-              {/* Course Route: requires 'course' permission */}
+              {/* Legacy and alternative route aliases */}
               <Route
-                path="/course"
-                element={canCourse ? <Course /> : <Navigate to="/profile" replace />}
-              />
-
-              {/* Certificate Route: requires 'certificate' permission */}
-              <Route
-                path="/adm"
-                element={canCertificate ? <Certificate /> : <Navigate to="/profile" replace />}
+                path="/user-management"
+                element={
+                  hasPermission('settings_users') || hasPermission('user_management') ? (
+                    <UserManagement />
+                  ) : (
+                    <AccessDenied moduleName="Users & Roles" />
+                  )
+                }
               />
               <Route
                 path="/certificate"
-                element={canCertificate ? <Certificate /> : <Navigate to="/profile" replace />}
+                element={
+                  hasPermission('certificate') ? (
+                    <Certificate />
+                  ) : (
+                    <AccessDenied moduleName="Certificate" />
+                  )
+                }
               />
 
-              {/* User Management Route: requires 'user_management' permission */}
-              <Route
-                path="/user-management"
-                element={canUserMgmt ? <UserManagement /> : <Navigate to="/profile" replace />}
-              />
+              {/* Map all 49 distinct paths from sidebar.json */}
+              {allRoutes.map((route) => (
+                <Route
+                  key={route.path}
+                  path={route.path}
+                  element={renderRouteElement(route)}
+                />
+              ))}
 
-              {/* Fallback route */}
+              {/* Intelligent Fallback Route */}
               <Route
                 path="*"
                 element={<Navigate to={canDashboard ? "/dashboard" : "/profile"} replace />}
