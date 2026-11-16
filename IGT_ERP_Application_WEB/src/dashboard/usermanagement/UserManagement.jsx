@@ -104,7 +104,8 @@ function UserManagement() {
   // Role Permissions Modal State (Pop-up)
   const [showRolePermModal, setShowRolePermModal] = useState(false);
   const [rolePermSearch, setRolePermSearch] = useState("");
-  const [selectedRole, setSelectedRole] = useState("Student");
+  const [departments, setDepartments] = useState([]);
+  const [selectedRole, setSelectedRole] = useState("Technical");
   const [rolePermissions, setRolePermissions] = useState({});
   const [loadingRolePerms, setLoadingRolePerms] = useState(false);
   const [savingRolePerms, setSavingRolePerms] = useState(false);
@@ -118,16 +119,30 @@ function UserManagement() {
   const [savingOverride, setSavingOverride] = useState(false);
   const [overrideMsg, setOverrideMsg] = useState({ type: "", text: "" });
 
-  // Add Role Modal State
-  const [showAddRoleModal, setShowAddRoleModal] = useState(false);
-  const [newRoleName, setNewRoleName] = useState("");
-  const [copyFromRole, setCopyFromRole] = useState("Technical");
-  const [addRoleMsg, setAddRoleMsg] = useState({ type: "", text: "" });
+
 
   const getAuthHeader = () => {
     const token = localStorage.getItem("access_token");
     return token ? { Authorization: `Bearer ${token}` } : {};
   };
+
+  // 0. Fetch Departments from Database department table
+  const fetchDepartments = useCallback(async () => {
+    try {
+      const res = await fetch(`${API_URL}/adm/departments`, {
+        headers: { ...getAuthHeader() },
+      });
+      const data = await res.json();
+      if (data.success && Array.isArray(data.departments)) {
+        setDepartments(data.departments);
+        if (data.departments.length > 0) {
+          setSelectedRole((prev) => prev || data.departments[0].department_name);
+        }
+      }
+    } catch (err) {
+      console.error("Failed to fetch departments:", err);
+    }
+  }, [API_URL]);
 
   // 1. Fetch Summary Counts
   const fetchSummary = useCallback(async () => {
@@ -174,6 +189,7 @@ function UserManagement() {
 
   // 3. Fetch Role Permissions for popup modal
   const fetchRolePermissions = useCallback(async (roleName) => {
+    if (!roleName) return;
     setLoadingRolePerms(true);
     setRoleMessage({ type: "", text: "" });
     try {
@@ -192,6 +208,10 @@ function UserManagement() {
   }, [API_URL]);
 
   useEffect(() => {
+    fetchDepartments();
+  }, [fetchDepartments]);
+
+  useEffect(() => {
     fetchSummary();
   }, [fetchSummary]);
 
@@ -201,9 +221,12 @@ function UserManagement() {
 
   useEffect(() => {
     if (showRolePermModal) {
-      fetchRolePermissions(selectedRole);
+      fetchDepartments();
+      if (selectedRole) {
+        fetchRolePermissions(selectedRole);
+      }
     }
-  }, [fetchRolePermissions, selectedRole, showRolePermModal]);
+  }, [fetchDepartments, fetchRolePermissions, selectedRole, showRolePermModal]);
 
   // 4. Toggle User Status (Lock / Unlock)
   const handleToggleUserStatus = async (userId) => {
@@ -366,44 +389,7 @@ function UserManagement() {
     }
   };
 
-  // 9. Handle Add Role
-  const handleCreateRole = async (e) => {
-    e.preventDefault();
-    if (!newRoleName.trim()) {
-      setAddRoleMsg({ type: "danger", text: "Please provide a valid role name." });
-      return;
-    }
-    try {
-      const copyRes = await fetch(`${API_URL}/adm/role_permissions?role=${encodeURIComponent(copyFromRole)}`, {
-        headers: { ...getAuthHeader() },
-      });
-      const copyData = await copyRes.json();
-      const initialPerms = copyData.permissions || {};
 
-      const saveRes = await fetch(`${API_URL}/adm/role_permissions`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...getAuthHeader(),
-        },
-        body: JSON.stringify({
-          role: newRoleName.trim(),
-          permissions: initialPerms,
-        }),
-      });
-      const saveData = await saveRes.json();
-      if (saveData.success) {
-        setSelectedRole(newRoleName.trim());
-        setShowAddRoleModal(false);
-        setNewRoleName("");
-        alert(`Role '${newRoleName.trim()}' created successfully!`);
-      } else {
-        setAddRoleMsg({ type: "danger", text: saveData.error || "Failed to create role." });
-      }
-    } catch (err) {
-      setAddRoleMsg({ type: "danger", text: "Error creating role." });
-    }
-  };
 
   // Helper for Role Badges
   const renderRoleBadge = (role) => {
@@ -457,19 +443,6 @@ function UserManagement() {
             }}
           >
             <i className="bx bx-shield-quarter me-1"></i> Role permissions
-          </button>
-
-          {/* Add Role Button */}
-          <button
-            type="button"
-            className="btn btn-outline-primary"
-            onClick={() => {
-              setNewRoleName("");
-              setAddRoleMsg({ type: "", text: "" });
-              setShowAddRoleModal(true);
-            }}
-          >
-            <i className="bx bx-plus me-1"></i> Add role
           </button>
         </div>
       </div>
@@ -714,11 +687,14 @@ function UserManagement() {
                   value={selectedRole}
                   onChange={(e) => setSelectedRole(e.target.value)}
                 >
-                  <option value="Student">Student</option>
-                  <option value="Technical">Staff (Technical)</option>
-                  <option value="Sales">Sales</option>
-                  <option value="HR">HR</option>
-                  <option value="Admin">Admin</option>
+                  {departments.map((dept) => (
+                    <option key={dept.department_id} value={dept.department_name}>
+                      {dept.department_name}
+                    </option>
+                  ))}
+                  {!departments.some((d) => d.department_name.toLowerCase() === "student") && (
+                    <option value="Student">Student</option>
+                  )}
                 </select>
                 <button
                   type="button"
@@ -987,72 +963,7 @@ function UserManagement() {
         </div>
       )}
 
-      {/* 6. Add Role Modal */}
-      {showAddRoleModal && (
-        <div className="modal-backdrop-custom">
-          <div className="modal-dialog-custom p-4" style={{ maxWidth: "480px" }}>
-            <div className="d-flex justify-content-between align-items-center border-bottom pb-2 mb-3">
-              <h5 className="modal-title fw-bold mb-0">Add Role</h5>
-              <button
-                type="button"
-                className="btn-close"
-                onClick={() => setShowAddRoleModal(false)}
-              ></button>
-            </div>
 
-            {addRoleMsg.text && (
-              <div className={`alert alert-${addRoleMsg.type} py-2 small mb-3`} role="alert">
-                {addRoleMsg.text}
-              </div>
-            )}
-
-            <form onSubmit={handleCreateRole}>
-              <div className="mb-3">
-                <label className="form-label fw-semibold">Role Name</label>
-                <input
-                  type="text"
-                  className="form-control"
-                  placeholder="e.g. Placement Officer, Accountant"
-                  value={newRoleName}
-                  onChange={(e) => setNewRoleName(e.target.value)}
-                  required
-                />
-              </div>
-
-              <div className="mb-4">
-                <label className="form-label fw-semibold">Copy Permissions From</label>
-                <select
-                  className="form-select"
-                  value={copyFromRole}
-                  onChange={(e) => setCopyFromRole(e.target.value)}
-                >
-                  <option value="Technical">Staff (Technical)</option>
-                  <option value="Sales">Sales</option>
-                  <option value="HR">HR</option>
-                  <option value="Student">Student</option>
-                  <option value="Admin">Admin</option>
-                </select>
-                <small className="text-muted">
-                  The new role will inherit all menu permissions of this base template.
-                </small>
-              </div>
-
-              <div className="d-flex justify-content-end gap-2 pt-2 border-top">
-                <button
-                  type="button"
-                  className="btn btn-outline-secondary btn-sm"
-                  onClick={() => setShowAddRoleModal(false)}
-                >
-                  Cancel
-                </button>
-                <button type="submit" className="btn btn-primary btn-sm">
-                  Create Role
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
