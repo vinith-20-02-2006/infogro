@@ -38,12 +38,26 @@ class UserProfile(models.Model):
     def get_effective_permissions(self):
         """
         Computes effective permissions for this user:
-        1. Starts with the role's current default permissions from database.
-        2. Merges any individual user overrides (custom_permissions).
+        1. Checks designation-specific permissions if assigned.
+        2. Falls back to department permissions or role default template.
+        3. Merges any individual user overrides (custom_permissions).
         """
-        role_defaults = get_saved_role_permissions(self.role)
+        base_perms = None
+        if self.designation:
+            desig_record = RolePermission.objects.filter(designation=self.designation).first()
+            if desig_record and desig_record.permissions:
+                base_perms = desig_record.permissions
+
+        if not base_perms and self.department:
+            dept_record = RolePermission.objects.filter(department=self.department, designation__isnull=True).first()
+            if dept_record and dept_record.permissions:
+                base_perms = dept_record.permissions
+
+        if not base_perms:
+            base_perms = get_saved_role_permissions(self.role)
+
         effective = {}
-        for menu, act_dict in role_defaults.items():
+        for menu, act_dict in base_perms.items():
             if isinstance(act_dict, dict):
                 effective[menu] = dict(act_dict)
             else:

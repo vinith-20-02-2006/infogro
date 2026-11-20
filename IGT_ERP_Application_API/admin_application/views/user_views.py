@@ -211,30 +211,54 @@ class UpdateUserOverridePermissionsView(APIView):
 @permission_classes([])
 class RolePermissionsView(APIView):
     """
-    GET: Retrieves saved permissions for a role (?role=Technical).
-    POST: Saves updated permissions for a role and synchronizes across all users of that role.
+    GET: Retrieves saved permissions for a role, department, or designation.
+         Query params: ?department_id=X&designation_id=Y or ?role=Technical
+    POST: Saves updated permissions and synchronizes across users.
     """
     def get(self, request):
-        role = request.query_params.get('role', 'Technical')
+        role = request.query_params.get('role')
+        dept_id = request.query_params.get('department_id')
+        desig_id = request.query_params.get('designation_id')
         try:
-            perms = user_services.get_role_permissions(role)
-            return Response({'success': True, 'role': role, 'permissions': perms}, status=status.HTTP_200_OK)
+            perms = user_services.get_role_permissions(
+                role_name=role,
+                department_id=dept_id,
+                designation_id=desig_id
+            )
+            return Response({
+                'success': True,
+                'role': role,
+                'department_id': dept_id,
+                'designation_id': desig_id,
+                'permissions': perms
+            }, status=status.HTTP_200_OK)
         except Exception as e:
             logger.error(f"Error fetching role permissions: {e}")
             return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
     def post(self, request):
         role = request.data.get('role')
+        dept_id = request.data.get('department_id')
+        desig_id = request.data.get('designation_id')
         permissions = request.data.get('permissions')
-        if not role or not permissions:
-            return Response({'error': 'Both role and permissions are required.'}, status=status.HTTP_400_BAD_REQUEST)
+        if not permissions or (not role and not dept_id and not desig_id):
+            return Response({
+                'error': 'Permissions and either designation_id, department_id, or role are required.'
+            }, status=status.HTTP_400_BAD_REQUEST)
 
         try:
-            saved_perms = user_services.save_role_permissions(role, permissions)
+            saved_perms = user_services.save_role_permissions(
+                role_name=role,
+                permissions=permissions,
+                department_id=dept_id,
+                designation_id=desig_id
+            )
             return Response({
                 'success': True,
-                'message': f"Permissions for role '{role}' saved successfully and applied to all users.",
+                'message': 'Permissions saved successfully and applied to active users.',
                 'role': role,
+                'department_id': dept_id,
+                'designation_id': desig_id,
                 'permissions': saved_perms
             }, status=status.HTTP_200_OK)
         except Exception as e:
@@ -248,15 +272,25 @@ class ResetRolePermissionsView(APIView):
     """Resets role permissions back to default reference values."""
     def post(self, request):
         role = request.data.get('role')
-        if not role:
-            return Response({'error': 'role is required.'}, status=status.HTTP_400_BAD_REQUEST)
+        dept_id = request.data.get('department_id')
+        desig_id = request.data.get('designation_id')
+        if not role and not dept_id and not desig_id:
+            return Response({
+                'error': 'Either designation_id, department_id, or role is required.'
+            }, status=status.HTTP_400_BAD_REQUEST)
 
         try:
-            reset_perms = user_services.reset_role_permissions(role)
+            reset_perms = user_services.reset_role_permissions(
+                role_name=role,
+                department_id=dept_id,
+                designation_id=desig_id
+            )
             return Response({
                 'success': True,
-                'message': f"Permissions for role '{role}' have been reset to system defaults.",
+                'message': 'Permissions have been reset to system defaults.',
                 'role': role,
+                'department_id': dept_id,
+                'designation_id': desig_id,
                 'permissions': reset_perms
             }, status=status.HTTP_200_OK)
         except Exception as e:

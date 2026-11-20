@@ -1,4 +1,6 @@
 from django.db import models
+from .Department import Department
+from .Designation import Designation
 
 
 class RolePermission(models.Model):
@@ -16,7 +18,9 @@ class RolePermission(models.Model):
         (ROLE_STUDENT, 'Student'),
     ]
 
-    role = models.CharField(max_length=50, choices=ROLE_CHOICES, unique=True)
+    role = models.CharField(max_length=150, null=True, blank=True)
+    department = models.ForeignKey(Department, on_delete=models.CASCADE, null=True, blank=True, related_name='role_permissions')
+    designation = models.ForeignKey(Designation, on_delete=models.CASCADE, null=True, blank=True, related_name='role_permissions')
     permissions = models.JSONField(default=dict, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -25,7 +29,10 @@ class RolePermission(models.Model):
         db_table = 'role_permissions'
 
     def __str__(self):
-        return f"Permissions for {self.role}"
+        if self.designation:
+            dept_name = self.department.department_name if self.department else 'No Dept'
+            return f"Permissions for {self.designation.designation_name} ({dept_name})"
+        return f"Permissions for {self.role or 'Custom'}"
 
 
 def get_default_permissions_for_role(role_name):
@@ -132,7 +139,7 @@ def get_default_permissions_for_role(role_name):
             perms[k] = v
         return perms
 
-    if role == RolePermission.ROLE_HR:
+    if role == RolePermission.ROLE_HR or 'hr' in role.lower():
         hr_enabled = {
             'dashboard': {'view': True, 'add': False, 'edit': False, 'delete': False},
             'staff_register': {'view': True, 'add': True, 'edit': True, 'delete': False},
@@ -145,6 +152,123 @@ def get_default_permissions_for_role(role_name):
             'my_payslip': {'view': True, 'add': False, 'edit': False, 'delete': False},
         }
         for k, v in hr_enabled.items():
+            perms[k] = v
+        return perms
+
+    if 'front office' in role.lower():
+        fo_enabled = {
+            'dashboard': {'view': True, 'add': False, 'edit': False, 'delete': False},
+            'enquiry': {'view': True, 'add': True, 'edit': True, 'delete': False},
+            'enquiry_followup': {'view': True, 'add': True, 'edit': True, 'delete': False},
+            'registration': {'view': True, 'add': True, 'edit': True, 'delete': False},
+            'certificate_verification': {'view': True, 'add': False, 'edit': False, 'delete': False},
+            'id_card_generation': {'view': True, 'add': True, 'edit': False, 'delete': False},
+            'reports_enquiry': {'view': True, 'add': False, 'edit': False, 'delete': False},
+            'my_attendance': {'view': True, 'add': True, 'edit': False, 'delete': False},
+            'my_leave': {'view': True, 'add': True, 'edit': False, 'delete': False},
+            'my_payslip': {'view': True, 'add': False, 'edit': False, 'delete': False},
+        }
+        for k, v in fo_enabled.items():
+            perms[k] = v
+        return perms
+
+    if 'housekeeping' in role.lower():
+        hk_enabled = {
+            'dashboard': {'view': True, 'add': False, 'edit': False, 'delete': False},
+            'my_attendance': {'view': True, 'add': True, 'edit': False, 'delete': False},
+            'my_leave': {'view': True, 'add': True, 'edit': False, 'delete': False},
+            'my_payslip': {'view': True, 'add': False, 'edit': False, 'delete': False},
+        }
+        for k, v in hk_enabled.items():
+            perms[k] = v
+        return perms
+
+    if 'admin' in role.lower() and role != RolePermission.ROLE_ADMIN:
+        adm_enabled = {
+            'dashboard': {'view': True, 'add': False, 'edit': False, 'delete': False},
+            'course': {'view': True, 'add': True, 'edit': True, 'delete': False},
+            'department': {'view': True, 'add': True, 'edit': True, 'delete': False},
+            'designation': {'view': True, 'add': True, 'edit': True, 'delete': False},
+            'staff_register': {'view': True, 'add': True, 'edit': True, 'delete': False},
+            'staff_attendance': {'view': True, 'add': True, 'edit': True, 'delete': False},
+            'staff_leave': {'view': True, 'add': True, 'edit': True, 'delete': False},
+            'billing': {'view': True, 'add': True, 'edit': False, 'delete': False},
+            'dues': {'view': True, 'add': True, 'edit': True, 'delete': False},
+            'reports_enquiry': {'view': True, 'add': False, 'edit': False, 'delete': False},
+            'reports_fees': {'view': True, 'add': False, 'edit': False, 'delete': False},
+            'reports_attendance': {'view': True, 'add': False, 'edit': False, 'delete': False},
+            'my_attendance': {'view': True, 'add': True, 'edit': False, 'delete': False},
+            'my_leave': {'view': True, 'add': True, 'edit': False, 'delete': False},
+            'my_payslip': {'view': True, 'add': False, 'edit': False, 'delete': False},
+        }
+        for k, v in adm_enabled.items():
+            perms[k] = v
+        return perms
+
+    if 'account' in role.lower() or 'finance' in role.lower():
+        acct_enabled = {
+            'dashboard': {'view': True, 'add': False, 'edit': False, 'delete': False},
+            'billing': {'view': True, 'add': True, 'edit': True, 'delete': False},
+            'dues': {'view': True, 'add': True, 'edit': True, 'delete': False},
+            'income': {'view': True, 'add': True, 'edit': True, 'delete': False},
+            'expenses': {'view': True, 'add': True, 'edit': True, 'delete': False},
+            'vendors': {'view': True, 'add': True, 'edit': True, 'delete': False},
+            'payslip_generation': {'view': True, 'add': True, 'edit': True, 'delete': False},
+            'reports_fees': {'view': True, 'add': False, 'edit': False, 'delete': False},
+            'reports_collection': {'view': True, 'add': False, 'edit': False, 'delete': False},
+            'reports_dues': {'view': True, 'add': False, 'edit': False, 'delete': False},
+            'reports_income_expense': {'view': True, 'add': False, 'edit': False, 'delete': False},
+            'my_attendance': {'view': True, 'add': True, 'edit': False, 'delete': False},
+            'my_leave': {'view': True, 'add': True, 'edit': False, 'delete': False},
+            'my_payslip': {'view': True, 'add': False, 'edit': False, 'delete': False},
+        }
+        for k, v in acct_enabled.items():
+            perms[k] = v
+        return perms
+
+    if 'marketing' in role.lower():
+        mkt_enabled = {
+            'dashboard': {'view': True, 'add': False, 'edit': False, 'delete': False},
+            'course': {'view': True, 'add': False, 'edit': False, 'delete': False},
+            'enquiry': {'view': True, 'add': True, 'edit': True, 'delete': False},
+            'enquiry_followup': {'view': True, 'add': True, 'edit': True, 'delete': False},
+            'workshop_template': {'view': True, 'add': True, 'edit': True, 'delete': False},
+            'letterhead_template': {'view': True, 'add': True, 'edit': True, 'delete': False},
+            'reports_enquiry': {'view': True, 'add': False, 'edit': False, 'delete': False},
+            'my_attendance': {'view': True, 'add': True, 'edit': False, 'delete': False},
+            'my_leave': {'view': True, 'add': True, 'edit': False, 'delete': False},
+            'my_payslip': {'view': True, 'add': False, 'edit': False, 'delete': False},
+        }
+        for k, v in mkt_enabled.items():
+            perms[k] = v
+        return perms
+
+    if 'training' in role.lower() or 'academic' in role.lower():
+        train_enabled = {
+            'dashboard': {'view': True, 'add': False, 'edit': False, 'delete': False},
+            'course': {'view': True, 'add': False, 'edit': False, 'delete': False},
+            'coursemodule': {'view': True, 'add': False, 'edit': False, 'delete': False},
+            'batch_creation': {'view': True, 'add': True, 'edit': True, 'delete': False},
+            'batch_scheduling': {'view': True, 'add': True, 'edit': True, 'delete': False},
+            'batch_transfer': {'view': True, 'add': True, 'edit': True, 'delete': False},
+            'student_attendance': {'view': True, 'add': True, 'edit': True, 'delete': False},
+            'student_academic_process': {'view': True, 'add': True, 'edit': True, 'delete': False},
+            'exams': {'view': True, 'add': True, 'edit': True, 'delete': False},
+            'exam_schedule': {'view': True, 'add': True, 'edit': True, 'delete': False},
+            'marks_entry': {'view': True, 'add': True, 'edit': True, 'delete': False},
+            'results': {'view': True, 'add': True, 'edit': True, 'delete': False},
+            'gradesheet': {'view': True, 'add': True, 'edit': False, 'delete': False},
+            'certificate': {'view': True, 'add': True, 'edit': True, 'delete': False},
+            'certificate_generation': {'view': True, 'add': True, 'edit': False, 'delete': False},
+            'reports_batch': {'view': True, 'add': False, 'edit': False, 'delete': False},
+            'reports_attendance': {'view': True, 'add': False, 'edit': False, 'delete': False},
+            'reports_trainer': {'view': True, 'add': False, 'edit': False, 'delete': False},
+            'reports_exam': {'view': True, 'add': False, 'edit': False, 'delete': False},
+            'my_attendance': {'view': True, 'add': True, 'edit': False, 'delete': False},
+            'my_leave': {'view': True, 'add': True, 'edit': False, 'delete': False},
+            'my_payslip': {'view': True, 'add': False, 'edit': False, 'delete': False},
+        }
+        for k, v in train_enabled.items():
             perms[k] = v
         return perms
 

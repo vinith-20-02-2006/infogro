@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useContext } from "react";
+import React, { useState, useEffect, useContext, useCallback } from "react";
 import { Link } from "react-router-dom";
 import AuthContext from "../../services/AuthContext";
 
@@ -7,6 +7,7 @@ function StaffRegister() {
 
   const [departments, setDepartments] = useState([]);
   const [designations, setDesignations] = useState([]);
+  const [loadingDesignations, setLoadingDesignations] = useState(false);
   const [formData, setFormData] = useState({
     staff_name: "",
     email: "",
@@ -24,41 +25,82 @@ function StaffRegister() {
     return token ? { Authorization: `Bearer ${token}` } : {};
   };
 
+  // Fetch designations filtered strictly by department_id
+  const fetchDesignationsForDept = useCallback(async (deptId) => {
+    if (!deptId) {
+      setDesignations([]);
+      return;
+    }
+    setLoadingDesignations(true);
+    try {
+      const res = await fetch(`${API_URL}/adm/designations?department_id=${encodeURIComponent(deptId)}`, {
+        headers: { ...getAuthHeader() },
+      });
+      const data = await res.json();
+      if (data.success && Array.isArray(data.designations)) {
+        setDesignations(data.designations);
+      } else {
+        setDesignations([]);
+      }
+    } catch (err) {
+      console.error("Error fetching designations for department:", err);
+      setDesignations([]);
+    } finally {
+      setLoadingDesignations(false);
+    }
+  }, [API_URL]);
+
+  // Initial load: Fetch departments
   useEffect(() => {
-    // Fetch departments
     fetch(`${API_URL}/adm/departments`, { headers: { ...getAuthHeader() } })
       .then((res) => res.json())
       .then((data) => {
-        if (data.departments) {
+        if (data.departments && Array.isArray(data.departments)) {
           setDepartments(data.departments);
           if (data.departments.length > 0) {
-            setFormData((prev) => ({ ...prev, department_id: data.departments[0].department_id }));
+            const firstDeptId = data.departments[0].department_id;
+            setFormData((prev) => ({
+              ...prev,
+              department_id: firstDeptId,
+              designation_id: "",
+            }));
+            fetchDesignationsForDept(firstDeptId);
           }
         }
       })
       .catch((err) => console.error("Error fetching departments:", err));
+  }, [API_URL, fetchDesignationsForDept]);
 
-    // Fetch designations
-    fetch(`${API_URL}/adm/designations`, { headers: { ...getAuthHeader() } })
-      .then((res) => res.json())
-      .then((data) => {
-        if (data.designations) {
-          setDesignations(data.designations);
-          if (data.designations.length > 0) {
-            setFormData((prev) => ({ ...prev, designation_id: data.designations[0].designation_id }));
-          }
-        }
-      })
-      .catch((err) => console.error("Error fetching designations:", err));
-  }, [API_URL]);
-
+  // Handle department and input changes
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
+    if (name === "department_id") {
+      setFormData((prev) => ({
+        ...prev,
+        department_id: value,
+        designation_id: "", // Reset designation whenever department changes
+      }));
+      if (value) {
+        fetchDesignationsForDept(value);
+      } else {
+        setDesignations([]);
+      }
+    } else {
+      setFormData((prev) => ({ ...prev, [name]: value }));
+    }
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!formData.department_id) {
+      setMessage({ type: "danger", text: "Please select a department." });
+      return;
+    }
+    if (!formData.designation_id) {
+      setMessage({ type: "danger", text: "Please select a designation for this staff member." });
+      return;
+    }
+
     setLoading(true);
     setMessage({ type: "", text: "" });
 
@@ -75,16 +117,22 @@ function StaffRegister() {
       if (res.ok && data.success) {
         setMessage({
           type: "success",
-          text: `Staff '${data.staff?.staff_name}' registered successfully! Assigned Role: ${data.staff?.role}. Account is immediately active in Users & Roles.`,
+          text: `Staff '${data.staff?.staff_name}' registered successfully! Assigned Role: ${data.staff?.role}, Designation: ${data.staff?.designation}. Account is immediately active in Users & Roles.`,
         });
+        const defaultDeptId = departments[0]?.department_id || "";
         setFormData({
           staff_name: "",
           email: "",
           password: "",
-          department_id: departments[0]?.department_id || "",
-          designation_id: designations[0]?.designation_id || "",
+          department_id: defaultDeptId,
+          designation_id: "",
           phone: "",
         });
+        if (defaultDeptId) {
+          fetchDesignationsForDept(defaultDeptId);
+        } else {
+          setDesignations([]);
+        }
       } else {
         setMessage({
           type: "danger",
@@ -106,7 +154,7 @@ function StaffRegister() {
             Staff Registration
           </h4>
           <p className="text-muted mb-0">
-            Register new staff members. Accounts inherit permissions directly from their Department and appear in Users & Roles.
+            Register new staff members. Accounts inherit permissions directly from their Department and Designation, and appear in Users & Roles.
           </p>
         </div>
         <Link to="/settings/users" className="btn btn-outline-primary btn-sm">
@@ -173,6 +221,7 @@ function StaffRegister() {
                   </div>
                 </div>
 
+                {/* 1. Department Dropdown */}
                 <div className="row mb-3">
                   <label className="col-sm-3 col-form-label fw-semibold">Department</label>
                   <div className="col-sm-9">
@@ -183,18 +232,20 @@ function StaffRegister() {
                       onChange={handleChange}
                       required
                     >
+                      <option value="">-- Select Department --</option>
                       {departments.map((dept) => (
                         <option key={dept.department_id} value={dept.department_id}>
-                          {dept.department_name} (Role: {dept.department_name})
+                          {dept.department_name}
                         </option>
                       ))}
                     </select>
                     <small className="text-muted">
-                      Department dictates role permissions (Technical, Sales, HR, Admin).
+                      Select department to load its specific designations.
                     </small>
                   </div>
                 </div>
 
+                {/* 2. Designation Dropdown (Cascading based on Department) */}
                 <div className="row mb-3">
                   <label className="col-sm-3 col-form-label fw-semibold">Designation</label>
                   <div className="col-sm-9">
@@ -203,13 +254,29 @@ function StaffRegister() {
                       name="designation_id"
                       value={formData.designation_id}
                       onChange={handleChange}
+                      disabled={!formData.department_id || loadingDesignations}
+                      required
                     >
-                      {designations.map((desig) => (
-                        <option key={desig.designation_id} value={desig.designation_id}>
-                          {desig.designation_name}
-                        </option>
-                      ))}
+                      {!formData.department_id ? (
+                        <option value="">-- Select Department First --</option>
+                      ) : loadingDesignations ? (
+                        <option value="">Loading designations...</option>
+                      ) : designations.length === 0 ? (
+                        <option value="">No designations found for this department</option>
+                      ) : (
+                        <>
+                          <option value="">-- Select Designation --</option>
+                          {designations.map((desig) => (
+                            <option key={desig.designation_id} value={desig.designation_id}>
+                              {desig.designation_name}
+                            </option>
+                          ))}
+                        </>
+                      )}
                     </select>
+                    <small className="text-muted">
+                      Displays only designations belonging to the selected department.
+                    </small>
                   </div>
                 </div>
 
@@ -229,7 +296,7 @@ function StaffRegister() {
 
                 <div className="row justify-content-end">
                   <div className="col-sm-9">
-                    <button type="submit" className="btn btn-primary" disabled={loading}>
+                    <button type="submit" className="btn btn-primary" disabled={loading || loadingDesignations}>
                       {loading ? "Registering..." : "Register Staff"}
                     </button>
                   </div>
@@ -244,7 +311,7 @@ function StaffRegister() {
             <div className="card-body">
               <h6 className="fw-bold mb-2">Role & Department Mapping</h6>
               <p className="small text-muted mb-3">
-                In this ERP system, staff logins are generated through Staff Registration. Permissions are automatically assigned based on their department:
+                In this ERP system, staff logins are generated through Staff Registration. Permissions are automatically assigned based on their department and designation:
               </p>
               <ul className="small text-muted ps-3 mb-0">
                 <li className="mb-2">
@@ -255,6 +322,12 @@ function StaffRegister() {
                 </li>
                 <li className="mb-2">
                   <strong>HR:</strong> Access to Staff Attendance, Staff Leave, and Payslips.
+                </li>
+                <li className="mb-2">
+                  <strong>Accounts & Finance:</strong> Access to Billing, Dues, Income, Expenses, Vendors, and Financial Reports.
+                </li>
+                <li className="mb-2">
+                  <strong>Front Office:</strong> Access to Enquiry, Registration, Visitor Management, and ID Card Generation.
                 </li>
                 <li>
                   <strong>Admin:</strong> Unrestricted full access to all 39 menus and settings.

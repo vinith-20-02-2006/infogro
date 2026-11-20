@@ -105,7 +105,10 @@ function UserManagement() {
   const [showRolePermModal, setShowRolePermModal] = useState(false);
   const [rolePermSearch, setRolePermSearch] = useState("");
   const [departments, setDepartments] = useState([]);
-  const [selectedRole, setSelectedRole] = useState("Technical");
+  const [selectedDeptId, setSelectedDeptId] = useState("");
+  const [designations, setDesignations] = useState([]);
+  const [selectedDesigId, setSelectedDesigId] = useState("");
+  const [loadingDesignations, setLoadingDesignations] = useState(false);
   const [rolePermissions, setRolePermissions] = useState({});
   const [loadingRolePerms, setLoadingRolePerms] = useState(false);
   const [savingRolePerms, setSavingRolePerms] = useState(false);
@@ -118,8 +121,6 @@ function UserManagement() {
   const [overrideSearch, setOverrideSearch] = useState("");
   const [savingOverride, setSavingOverride] = useState(false);
   const [overrideMsg, setOverrideMsg] = useState({ type: "", text: "" });
-
-
 
   const getAuthHeader = () => {
     const token = localStorage.getItem("access_token");
@@ -135,12 +136,38 @@ function UserManagement() {
       const data = await res.json();
       if (data.success && Array.isArray(data.departments)) {
         setDepartments(data.departments);
-        if (data.departments.length > 0) {
-          setSelectedRole((prev) => prev || data.departments[0].department_name);
-        }
       }
     } catch (err) {
       console.error("Failed to fetch departments:", err);
+    }
+  }, [API_URL]);
+
+  // 0b. Fetch Designations belonging strictly to selected department
+  const fetchDesignations = useCallback(async (deptId) => {
+    if (!deptId) {
+      setDesignations([]);
+      return;
+    }
+    if (deptId === "student") {
+      setDesignations([{ designation_id: "student", designation_name: "Student (Default Role)" }]);
+      return;
+    }
+    setLoadingDesignations(true);
+    try {
+      const res = await fetch(`${API_URL}/adm/designations?department_id=${encodeURIComponent(deptId)}`, {
+        headers: { ...getAuthHeader() },
+      });
+      const data = await res.json();
+      if (data.success && Array.isArray(data.designations)) {
+        setDesignations(data.designations);
+      } else {
+        setDesignations([]);
+      }
+    } catch (err) {
+      console.error("Failed to fetch designations:", err);
+      setDesignations([]);
+    } finally {
+      setLoadingDesignations(false);
     }
   }, [API_URL]);
 
@@ -187,25 +214,67 @@ function UserManagement() {
     }
   }, [API_URL, searchTerm, filterRole, filterStatus, page, pageSize]);
 
-  // 3. Fetch Role Permissions for popup modal
-  const fetchRolePermissions = useCallback(async (roleName) => {
-    if (!roleName) return;
+  // 3. Fetch Permissions for selected department and designation
+  const fetchRolePermissions = useCallback(async (deptId, desigId) => {
+    if (!deptId && !desigId) return;
     setLoadingRolePerms(true);
     setRoleMessage({ type: "", text: "" });
     try {
-      const res = await fetch(`${API_URL}/adm/role_permissions?role=${encodeURIComponent(roleName)}`, {
+      let url = `${API_URL}/adm/role_permissions`;
+      if (deptId === "student" || desigId === "student") {
+        url += `?role=Student`;
+      } else {
+        const params = new URLSearchParams();
+        if (deptId) params.append("department_id", deptId);
+        if (desigId) params.append("designation_id", desigId);
+        url += `?${params.toString()}`;
+      }
+
+      const res = await fetch(url, {
         headers: { ...getAuthHeader() },
       });
       const data = await res.json();
       if (data.success && data.permissions) {
         setRolePermissions(data.permissions);
+      } else {
+        setRolePermissions({});
       }
     } catch (err) {
-      console.error("Failed to fetch role permissions:", err);
+      console.error("Failed to fetch permissions:", err);
     } finally {
       setLoadingRolePerms(false);
     }
   }, [API_URL]);
+
+  // Handle department change: reset designation and fetch its designations
+  const handleDeptChange = (e) => {
+    const newDeptId = e.target.value;
+    setSelectedDeptId(newDeptId);
+    setSelectedDesigId(""); // Requirement 4: When department changes, reset previously selected designation!
+    setRolePermissions({});
+    setRoleMessage({ type: "", text: "" });
+    if (newDeptId) {
+      fetchDesignations(newDeptId);
+      if (newDeptId === "student") {
+        setSelectedDesigId("student");
+        fetchRolePermissions("student", "student");
+      }
+    } else {
+      setDesignations([]);
+    }
+  };
+
+  // Handle designation change: load saved permissions for this department + designation
+  const handleDesigChange = (e) => {
+    const newDesigId = e.target.value;
+    setSelectedDesigId(newDesigId);
+    setRoleMessage({ type: "", text: "" });
+    if (newDesigId) {
+      fetchRolePermissions(selectedDeptId, newDesigId);
+    } else {
+      setRolePermissions({});
+    }
+  };
 
   useEffect(() => {
     fetchDepartments();
@@ -222,11 +291,8 @@ function UserManagement() {
   useEffect(() => {
     if (showRolePermModal) {
       fetchDepartments();
-      if (selectedRole) {
-        fetchRolePermissions(selectedRole);
-      }
     }
-  }, [fetchDepartments, fetchRolePermissions, selectedRole, showRolePermModal]);
+  }, [fetchDepartments, showRolePermModal]);
 
   // 4. Toggle User Status (Lock / Unlock)
   const handleToggleUserStatus = async (userId) => {
@@ -265,27 +331,46 @@ function UserManagement() {
     });
   };
 
-  // 6. Save Role Permissions
+  // 6. Save Role Permissions (Department & Designation Scoped)
   const handleSaveRolePermissions = async () => {
+    if (!selectedDeptId) {
+      setRoleMessage({ type: "danger", text: "Please select a department first." });
+      return;
+    }
+    if (selectedDeptId !== "student" && !selectedDesigId) {
+      setRoleMessage({ type: "danger", text: "Please select a designation to save permissions." });
+      return;
+    }
+
     setSavingRolePerms(true);
     setRoleMessage({ type: "", text: "" });
     try {
+      const payload = {
+        permissions: rolePermissions,
+      };
+      if (selectedDeptId === "student") {
+        payload.role = "Student";
+      } else {
+        payload.department_id = selectedDeptId;
+        payload.designation_id = selectedDesigId;
+      }
+
       const res = await fetch(`${API_URL}/adm/role_permissions`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           ...getAuthHeader(),
         },
-        body: JSON.stringify({
-          role: selectedRole,
-          permissions: rolePermissions,
-        }),
+        body: JSON.stringify(payload),
       });
       const data = await res.json();
       if (data.success) {
+        const currentDesigName =
+          designations.find((d) => String(d.designation_id) === String(selectedDesigId))?.designation_name ||
+          (selectedDeptId === "student" ? "Student" : "Selected Designation");
         setRoleMessage({
           type: "success",
-          text: `Permissions for ${selectedRole} saved successfully and updated for all users.`,
+          text: `Permissions for ${currentDesigName} saved successfully and updated for all users.`,
         });
         refreshUserProfile();
         fetchUsers();
@@ -301,26 +386,43 @@ function UserManagement() {
 
   // 7. Reset Role Permissions
   const handleResetRolePermissions = async () => {
-    if (!window.confirm(`Are you sure you want to reset permissions for ${selectedRole} to defaults?`)) {
+    if (!selectedDeptId) return;
+    if (selectedDeptId !== "student" && !selectedDesigId) {
+      alert("Please select a designation first.");
+      return;
+    }
+    const currentDesigName =
+      designations.find((d) => String(d.designation_id) === String(selectedDesigId))?.designation_name ||
+      (selectedDeptId === "student" ? "Student" : "Selected Designation");
+
+    if (!window.confirm(`Are you sure you want to reset permissions for ${currentDesigName} to defaults?`)) {
       return;
     }
     setResettingRolePerms(true);
     setRoleMessage({ type: "", text: "" });
     try {
+      const payload = {};
+      if (selectedDeptId === "student") {
+        payload.role = "Student";
+      } else {
+        payload.department_id = selectedDeptId;
+        payload.designation_id = selectedDesigId;
+      }
+
       const res = await fetch(`${API_URL}/adm/reset_role_permissions`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           ...getAuthHeader(),
         },
-        body: JSON.stringify({ role: selectedRole }),
+        body: JSON.stringify(payload),
       });
       const data = await res.json();
       if (data.success) {
         setRolePermissions(data.permissions);
         setRoleMessage({
           type: "success",
-          text: `Permissions for ${selectedRole} reset to defaults.`,
+          text: `Permissions for ${currentDesigName} reset to defaults.`,
         });
         refreshUserProfile();
         fetchUsers();
@@ -663,7 +765,7 @@ function UserManagement() {
         <div className="modal-backdrop-custom">
           <div className="modal-dialog-lg-custom p-4">
             {/* Modal Header */}
-            <div className="d-flex justify-content-between align-items-center border-bottom pb-3 mb-3">
+            <div className="d-flex justify-content-between align-items-center border-bottom pb-3 mb-3 flex-wrap gap-2">
               <div className="d-flex align-items-center gap-3">
                 <div
                   className="rounded p-2 d-flex align-items-center justify-content-center"
@@ -674,31 +776,62 @@ function UserManagement() {
                 <div>
                   <h5 className="modal-title fw-bold mb-0 text-dark">Role Permissions</h5>
                   <small className="text-muted">
-                    Configure default menu access and CRUD permissions for roles.
+                    Configure default menu access and CRUD permissions for designations.
                   </small>
                 </div>
               </div>
 
-              <div className="d-flex align-items-center gap-2">
-                <span className="small text-muted fw-semibold">Role:</span>
-                <select
-                  className="form-select form-select-sm"
-                  style={{ width: "160px" }}
-                  value={selectedRole}
-                  onChange={(e) => setSelectedRole(e.target.value)}
-                >
-                  {departments.map((dept) => (
-                    <option key={dept.department_id} value={dept.department_name}>
-                      {dept.department_name}
-                    </option>
-                  ))}
-                  {!departments.some((d) => d.department_name.toLowerCase() === "student") && (
-                    <option value="Student">Student</option>
-                  )}
-                </select>
+              {/* Department and Designation Selectors */}
+              <div className="d-flex align-items-center gap-2 flex-wrap">
+                {/* 1. Department Dropdown */}
+                <div className="d-flex align-items-center gap-1">
+                  <span className="small text-muted fw-semibold">Department:</span>
+                  <select
+                    className="form-select form-select-sm"
+                    style={{ minWidth: "170px" }}
+                    value={selectedDeptId}
+                    onChange={handleDeptChange}
+                  >
+                    <option value="">-- Select Department --</option>
+                    {departments.map((dept) => (
+                      <option key={dept.department_id} value={dept.department_id}>
+                        {dept.department_name}
+                      </option>
+                    ))}
+                    <option value="student">Student</option>
+                  </select>
+                </div>
+
+                {/* 2. Designation Dropdown */}
+                <div className="d-flex align-items-center gap-1">
+                  <span className="small text-muted fw-semibold">Designation:</span>
+                  <select
+                    className="form-select form-select-sm"
+                    style={{ minWidth: "190px" }}
+                    value={selectedDesigId}
+                    onChange={handleDesigChange}
+                    disabled={!selectedDeptId || loadingDesignations}
+                  >
+                    {!selectedDeptId ? (
+                      <option value="">-- Select Dept First --</option>
+                    ) : loadingDesignations ? (
+                      <option value="">Loading designations...</option>
+                    ) : (
+                      <>
+                        <option value="">-- Select Designation --</option>
+                        {designations.map((d) => (
+                          <option key={d.designation_id} value={d.designation_id}>
+                            {d.designation_name}
+                          </option>
+                        ))}
+                      </>
+                    )}
+                  </select>
+                </div>
+
                 <button
                   type="button"
-                  className="btn-close ms-2"
+                  className="btn-close ms-1"
                   onClick={() => setShowRolePermModal(false)}
                 ></button>
               </div>
@@ -719,6 +852,7 @@ function UserManagement() {
                 placeholder="Search menus (e.g. Course, Enquiry, Certificate, Report)..."
                 value={rolePermSearch}
                 onChange={(e) => setRolePermSearch(e.target.value)}
+                disabled={!selectedDesigId && selectedDeptId !== "student"}
               />
             </div>
 
@@ -735,10 +869,31 @@ function UserManagement() {
                   </tr>
                 </thead>
                 <tbody>
-                  {loadingRolePerms ? (
+                  {!selectedDeptId ? (
                     <tr>
-                      <td colSpan="5" className="text-center py-4 text-muted">
-                        Loading permissions...
+                      <td colSpan="5" className="text-center py-5 text-muted">
+                        <i className="bx bx-buildings fs-1 d-block mb-2 text-primary opacity-50"></i>
+                        <span className="fw-semibold">Please select a department and designation above</span>
+                        <div className="small text-muted mt-1">
+                          Designations will dynamically load based on your selected department.
+                        </div>
+                      </td>
+                    </tr>
+                  ) : !selectedDesigId ? (
+                    <tr>
+                      <td colSpan="5" className="text-center py-5 text-muted">
+                        <i className="bx bx-user-check fs-1 d-block mb-2 text-primary opacity-50"></i>
+                        <span className="fw-semibold">Please select a designation to view or configure its permissions</span>
+                        <div className="small text-muted mt-1">
+                          {designations.length} designations available in this department.
+                        </div>
+                      </td>
+                    </tr>
+                  ) : loadingRolePerms ? (
+                    <tr>
+                      <td colSpan="5" className="text-center py-5 text-muted">
+                        <div className="spinner-border spinner-border-sm text-primary me-2" role="status"></div>
+                        <span>Loading permissions...</span>
                       </td>
                     </tr>
                   ) : filteredRoleMenus.length === 0 ? (
@@ -808,13 +963,18 @@ function UserManagement() {
                   type="button"
                   className="btn btn-outline-secondary btn-sm"
                   onClick={handleResetRolePermissions}
-                  disabled={resettingRolePerms}
+                  disabled={resettingRolePerms || (!selectedDesigId && selectedDeptId !== "student")}
                 >
                   <i className="bx bx-reset me-1"></i>
                   {resettingRolePerms ? "Resetting..." : "Reset to Defaults"}
                 </button>
                 <small className="text-muted d-none d-md-inline" style={{ fontSize: "0.8rem" }}>
-                  Menus not ticked stay hidden for {selectedRole}.
+                  Menus not ticked stay hidden for{" "}
+                  <strong>
+                    {designations.find((d) => String(d.designation_id) === String(selectedDesigId))?.designation_name ||
+                      (selectedDeptId === "student" ? "Student" : "selected designation")}
+                  </strong>
+                  .
                 </small>
               </div>
 
@@ -830,7 +990,7 @@ function UserManagement() {
                   type="button"
                   className="btn btn-primary btn-sm"
                   onClick={handleSaveRolePermissions}
-                  disabled={savingRolePerms}
+                  disabled={savingRolePerms || (!selectedDesigId && selectedDeptId !== "student")}
                 >
                   <i className="bx bx-check me-1"></i>
                   {savingRolePerms ? "Saving..." : "Save Changes"}

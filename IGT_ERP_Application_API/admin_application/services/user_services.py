@@ -401,24 +401,42 @@ def register_student(**data):
 # ROLE PERMISSIONS MANAGEMENT (PHASE 5 & 7)
 # =========================================================================
 
-def get_role_permissions(role_name):
-    """Retrieves saved granular permissions for a given role."""
+def get_role_permissions(role_name=None, department_id=None, designation_id=None):
+    """
+    Retrieves saved granular permissions for a given designation, department, or role.
+    If designation_id is provided, looks up designation-level permissions.
+    If not saved yet, falls back to department default template.
+    """
+    if designation_id:
+        desig = Designation.objects.filter(designation_id=int(designation_id)).select_related('department').first()
+        if desig:
+            role_perm = RolePermission.objects.filter(designation=desig).first()
+            if role_perm and role_perm.permissions:
+                return role_perm.permissions
+            # Fallback to department defaults
+            dept_name = desig.department.department_name if desig.department else ''
+            return get_default_permissions_for_role(dept_name)
+
+    if department_id:
+        dept = Department.objects.filter(department_id=int(department_id)).first()
+        if dept:
+            role_perm = RolePermission.objects.filter(department=dept, designation__isnull=True).first()
+            if role_perm and role_perm.permissions:
+                return role_perm.permissions
+            return get_default_permissions_for_role(dept.department_name)
+
     role = (role_name or '').strip()
     if role.lower() == 'sales / staff':
         role = RolePermission.ROLE_SALES
     return get_saved_role_permissions(role)
 
 
-def save_role_permissions(role_name, permissions):
+def save_role_permissions(role_name=None, permissions=None, department_id=None, designation_id=None):
     """
-    Saves granular menu permissions for the selected role.
-    Updates the RolePermission model, and synchronizes effective permissions
-    for all active users belonging to that role.
+    Saves granular menu permissions for the selected designation, department, or role.
+    Updates or creates the RolePermission model, and synchronizes effective permissions
+    for all active users belonging to that designation or department.
     """
-    role = (role_name or '').strip()
-    if role.lower() == 'sales / staff':
-        role = RolePermission.ROLE_SALES
-
     if not isinstance(permissions, dict):
         raise ValidationError('Permissions must be a dictionary of menu permission objects.')
 
@@ -428,13 +446,67 @@ def save_role_permissions(role_name, permissions):
     else:
         permissions['profile']['view'] = True
 
+    # 1. Scoped by Designation
+    if designation_id:
+        desig = Designation.objects.filter(designation_id=int(designation_id)).select_related('department').first()
+        if not desig:
+            raise ValidationError('Invalid designation ID.')
+
+        dept = None
+        if department_id:
+            dept = Department.objects.filter(department_id=int(department_id)).first()
+        if not dept:
+            dept = desig.department
+
+        role_perm, _ = RolePermission.objects.update_or_create(
+            designation=desig,
+            defaults={
+                'department': dept,
+                'role': desig.designation_name,
+                'permissions': permissions
+            }
+        )
+
+        # Synchronize all user profiles having this designation
+        affected_profiles = UserProfile.objects.filter(designation=desig)
+        for p in affected_profiles:
+            p.permissions = p.get_effective_permissions()
+            p.save(update_fields=['permissions'])
+
+        return role_perm.permissions
+
+    # 2. Scoped by Department
+    if department_id:
+        dept = Department.objects.filter(department_id=int(department_id)).first()
+        if not dept:
+            raise ValidationError('Invalid department ID.')
+
+        role_perm, _ = RolePermission.objects.update_or_create(
+            department=dept,
+            designation=None,
+            defaults={
+                'role': dept.department_name,
+                'permissions': permissions
+            }
+        )
+
+        affected_profiles = UserProfile.objects.filter(department=dept)
+        for p in affected_profiles:
+            p.permissions = p.get_effective_permissions()
+            p.save(update_fields=['permissions'])
+
+        return role_perm.permissions
+
+    # 3. Scoped by Role Name (Legacy / Student / Admin)
+    role = (role_name or '').strip()
+    if role.lower() == 'sales / staff':
+        role = RolePermission.ROLE_SALES
+
     role_perm, _ = RolePermission.objects.update_or_create(
         role=role,
         defaults={'permissions': permissions}
     )
 
-    # Synchronize permissions across all users with this role
-    # Users inherit role defaults unless they have an explicit override
     affected_profiles = UserProfile.objects.filter(role=role)
     for p in affected_profiles:
         p.permissions = p.get_effective_permissions()
@@ -443,14 +515,36 @@ def save_role_permissions(role_name, permissions):
     return role_perm.permissions
 
 
-def reset_role_permissions(role_name):
-    """Restores default template permissions for the specified role."""
+def reset_role_permissions(role_name=None, department_id=None, designation_id=None):
+    """Restores default template permissions for the specified designation, department, or role."""
+    if designation_id:
+        desig = Designation.objects.filter(designation_id=int(designation_id)).select_related('department').first()
+        if not desig:
+            raise ValidationError('Invalid designation ID.')
+        dept_name = desig.department.department_name if desig.department else ''
+        defaults = get_default_permissions_for_role(dept_name)
+        return save_role_permissions(
+            permissions=defaults,
+            department_id=desig.department_id,
+            designation_id=desig.designation_id
+        )
+
+    if department_id:
+        dept = Department.objects.filter(department_id=int(department_id)).first()
+        if not dept:
+            raise ValidationError('Invalid department ID.')
+        defaults = get_default_permissions_for_role(dept.department_name)
+        return save_role_permissions(
+            permissions=defaults,
+            department_id=dept.department_id
+        )
+
     role = (role_name or '').strip()
     if role.lower() == 'sales / staff':
         role = RolePermission.ROLE_SALES
 
     defaults = get_default_permissions_for_role(role)
-    return save_role_permissions(role, defaults)
+    return save_role_permissions(role_name=role, permissions=defaults)
 
 
 # =========================================================================
